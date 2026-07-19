@@ -41,7 +41,10 @@ def test_seed_is_idempotent_and_complete(monkeypatch):
     assert Course.objects.get(code="MIK1624101").name == "Dasar Sistem"
     assert sum(Course.objects.filter(required=True).values_list("credits", flat=True)) == 129
     assert sum(Course.objects.filter(required=False).values_list("credits", flat=True)) == 90
-    curriculum = CurriculumVersion.objects.get(program_code="S1-INFORMATIKA", version=1)
+    curriculum = CurriculumVersion.objects.get(source_id="CURR-S1IF-2024-V1")
+    legacy_curriculum = CurriculumVersion.objects.get(source_id="CURR-LEGACY-DEMO-V1")
+    assert str(curriculum.public_id) == "80c134a5-abef-56fb-8549-dd8fd159ecc4"
+    assert str(legacy_curriculum.public_id) == "b69329c5-0f68-5832-84b5-75741b19dd04"
     source = json.loads(
         (settings.BASE_DIR / "fixtures/sample-data-2020-2026-obe-spec-v5.compact.json").read_text()
     )
@@ -95,6 +98,13 @@ def test_seed_is_idempotent_and_complete(monkeypatch):
         for value in AttainmentSnapshot.objects.values_list("formula_version", flat=True)
     )
     assert StudentProfile.objects.count() == 4
+    assert set(StudentProfile.objects.values_list("curriculum_public_id", flat=True)) <= set(
+        CurriculumVersion.objects.filter(source_id__isnull=False).values_list(
+            "public_id", flat=True
+        )
+    )
+    assert set(StudentProfile.objects.values_list("rule_package", flat=True)) == {"LEGACY-ABCDE"}
+    assert set(StudentProfile.objects.values_list("rule_package_version", flat=True)) == {1}
     assert AcademicResult.objects.count() == 212
     assert TaskInstance.objects.count() == 4
     mahasiswa = get_user_model().objects.get(username="mahasiswa")

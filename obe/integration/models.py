@@ -20,3 +20,25 @@ class IntegrationBatch(models.Model):
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     committed_at = models.DateTimeField(null=True, blank=True)
+
+
+class IdentifierAlias(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    namespace = models.CharField(
+        max_length=32,
+        choices=[("course-code", "Course code"), ("course-offering", "Course offering")],
+    )
+    legacy_identifier = models.CharField(max_length=120)
+    canonical_identifier = models.CharField(max_length=120)
+    status = models.CharField(max_length=24, default="resolved")
+    source_checksum = models.CharField(max_length=64, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["namespace", "legacy_identifier"], name="identifier_alias_unique"
+            )
+        ]
+        indexes = [models.Index(fields=["namespace", "canonical_identifier"])]

@@ -41,7 +41,9 @@ RECONCILIATION_COVERAGE = {
     "students": "students",
     "semester_records": "plans",
     "course_enrollments_completed": "results",
-    "lecturers": None,
+    "grade_scale_rows": "grade_scale_rows",
+    "lecturers": "lecturers",
+    "identifier_aliases": "identifier_aliases",
     "course_offerings": "course_offerings",
     "rps_versions": "rps_versions",
     "course_outcomes": "rps_course_outcomes",
@@ -62,9 +64,43 @@ RECONCILIATION_COVERAGE = {
     "ai_prompts": None,
     "secure_exams": None,
     "lifecycle_applications": None,
-    "scoped_assignments": None,
+    "scoped_assignments": "scoped_assignments",
     "integration_contracts": None,
 }
+
+CANONICAL_CURRICULUM_VERSIONS = (
+    {
+        "id": "CURR-LEGACY-DEMO-V1",
+        "uuid": "b69329c5-0f68-5832-84b5-75741b19dd04",
+        "programId": "S1-INFORMATIKA",
+        "name": "Kurikulum Legacy Demo",
+        "version": 1,
+        "cohortFrom": 2020,
+        "cohortTo": 2023,
+        "effectiveFrom": "2020-08-01",
+        "effectiveTo": "2024-07-31",
+        "status": "archived-demo",
+        "checksum": "9e78c4ef36c6b1cb0b244b50ca22ebcb0bc00db71670009d4fc7589d93f47804",
+        "immutable": True,
+    },
+    {
+        "id": "CURR-S1IF-2024-V1",
+        "uuid": "80c134a5-abef-56fb-8549-dd8fd159ecc4",
+        "programId": "S1-INFORMATIKA",
+        "name": "Kurikulum 2024",
+        "version": 1,
+        "cohortFrom": 2024,
+        "cohortTo": None,
+        "effectiveFrom": "2024-08-01",
+        "effectiveTo": None,
+        "status": "review",
+        "activationBlocked": True,
+        "activationBlockReasonCodes": ["CURRICULUM_REQUIRED_CREDITS_NOT_126"],
+        "checksum": "9e78c4ef36c6b1cb0b244b50ca22ebcb0bc00db71670009d4fc7589d93f47804",
+        "immutableWhenActive": True,
+        "approval": {"status": "pending-resolution", "makerCheckerRequired": True},
+    },
+)
 
 
 def stable_uuid(*parts: object) -> uuid.UUID:
@@ -89,6 +125,16 @@ def enrollment_status(enrollment: dict) -> str:
     return str(status).strip().lower()
 
 
+def canonical_curriculum_versions(dataset: dict) -> list[dict]:
+    """Use source master rows, with the same two v5 rows for the compact fixture."""
+    return dataset.get("curriculumVersions") or [dict(row) for row in CANONICAL_CURRICULUM_VERSIONS]
+
+
+def rule_registry(dataset: dict) -> dict:
+    registry = dataset.get("academicRuleRegistry", {})
+    return registry if registry.get("rulePackages") else sample_rule_registry()
+
+
 def source_inventory(dataset: dict) -> dict[str, int]:
     students = dataset.get("students", [])
     semester_record_count = 0
@@ -101,18 +147,25 @@ def source_inventory(dataset: dict) -> dict[str, int]:
                 enrollment_count += 1
                 enrollment_status_counts[enrollment_status(enrollment)] += 1
     inventory = {
-        "curriculum_versions": len(dataset.get("curriculumVersions", [])),
+        "curriculum_versions": len(canonical_curriculum_versions(dataset)),
         "graduate_profiles": len(dataset.get("graduateProfiles", [])),
         "cpl": len(dataset.get("cpl", [])),
         "knowledge_areas": len(dataset.get("knowledgeAreas", [])),
         "cpmk": len(dataset.get("cpmk", [])),
         "courses": len(dataset.get("courses", [])),
-        "rule_packages": len(dataset.get("academicRuleRegistry", {}).get("rulePackages", [])),
-        "academic_rules": len(dataset.get("academicRuleRegistry", {}).get("rules", [])),
+        "rule_packages": len(rule_registry(dataset).get("rulePackages", [])),
+        "academic_rules": len(rule_registry(dataset).get("rules", [])),
+        "grade_scale_rows": sum(
+            len(item.get("gradeScheme", []))
+            for item in rule_registry(dataset).get("rulePackages", [])
+        ),
         "students": len(students),
         "semester_records": semester_record_count,
         "course_enrollments": enrollment_count,
         "lecturers": len(dataset.get("lecturers", [])),
+        "identifier_aliases": sum(
+            len(items) for items in dataset.get("identifierAliases", {}).values()
+        ),
         "course_offerings": len(dataset.get("courseOfferings", [])),
         "rps_versions": len(dataset.get("learning", {}).get("rpsVersions", [])),
         "course_outcomes": len(dataset.get("learning", {}).get("courseOutcomes", [])),
@@ -174,6 +227,61 @@ def enrollment_contract_errors(dataset: dict) -> list[str]:
     return errors
 
 
+def master_contract_errors(dataset: dict) -> list[str]:
+    """Validate Stage 2 cross-references before opening the import transaction."""
+    errors: list[str] = []
+    curricula = {item.get("id"): item for item in canonical_curriculum_versions(dataset)}
+    packages = {item.get("id"): item for item in rule_registry(dataset).get("rulePackages", [])}
+    lecturers = {item.get("id"): item for item in dataset.get("lecturers", [])}
+    workloads = dataset.get("lecturerWorkloadSummary", [])
+
+    if len(curricula) != len(canonical_curriculum_versions(dataset)):
+        errors.append("curriculumVersions memuat id duplikat")
+    if len(packages) != len(rule_registry(dataset).get("rulePackages", [])):
+        errors.append("academicRuleRegistry.rulePackages memuat id duplikat")
+
+    for student in dataset.get("students", []):
+        if student.get("curriculumVersionId") not in curricula:
+            errors.append(f"student={student.get('nim')}: curriculumVersionId tidak ditemukan")
+        if student.get("rulePackageId") not in packages:
+            errors.append(f"student={student.get('nim')}: rulePackageId tidak ditemukan")
+        if len(errors) >= 20:
+            break
+
+    for workload in workloads:
+        lecturer = lecturers.get(workload.get("lecturerId"))
+        if lecturer is None:
+            errors.append(
+                f"workload lecturer={workload.get('lecturerId')}: identitas dosen tidak ditemukan"
+            )
+        elif workload.get("lecturerUuid") != lecturer.get("uuid"):
+            errors.append(
+                f"workload lecturer={workload.get('lecturerId')}: UUID dosen tidak konsisten"
+            )
+        if len(errors) >= 20:
+            break
+
+    for assignment in dataset.get("identity", {}).get("scopedAssignments", []):
+        if assignment.get("lecturerId") not in lecturers:
+            errors.append(f"assignment={assignment.get('id')}: lecturerId tidak ditemukan")
+        if assignment.get("type") not in {"DPA", "COURSE_COORDINATOR"}:
+            errors.append(f"assignment={assignment.get('id')}: type tidak didukung")
+        if len(errors) >= 20:
+            break
+
+    grade_scales = (
+        ("LEGACY-ABCDE-V1", "gradeScaleLegacy"),
+        ("CURRENT-AABBC-V1", "gradeScaleCurrent"),
+    )
+    for package_id, scale_key in grade_scales:
+        if (
+            scale_key in dataset
+            and packages.get(package_id, {}).get("gradeScheme") != dataset[scale_key]
+        ):
+            errors.append(f"{scale_key} tidak sama dengan gradeScheme {package_id}")
+    return errors[:20]
+
+
 def write_reconciliation(path: Path, reconciliation: dict) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -215,6 +323,11 @@ def load_dataset(path: Path) -> tuple[dict, str]:
     if contract_errors:
         raise CommandError(
             "Kontrak enrollment v5 tidak valid sebelum import: " + "; ".join(contract_errors)
+        )
+    master_errors = master_contract_errors(dataset)
+    if master_errors:
+        raise CommandError(
+            "Kontrak master data v5 tidak valid sebelum import: " + "; ".join(master_errors)
         )
     return dataset, hashlib.sha256(raw).hexdigest()
 
@@ -270,6 +383,9 @@ class Importer:
                 ("task", "academic_lifecycle", "TaskInstance"),
                 ("rule", "shared", "AcademicRule"),
                 ("rule_package", "shared", "CohortRulePackage"),
+                ("lecturer", "identity", "LecturerProfile"),
+                ("assignment", "identity", "RoleAssignment"),
+                ("alias", "integration", "IdentifierAlias"),
             )
         }
         self.users = ensure_demo_assignments()
@@ -279,13 +395,15 @@ class Importer:
 
     def run(self) -> dict[str, int]:
         self.import_academic_governance()
-        curriculum = self.import_curriculum()
-        courses = self.import_courses(curriculum)
-        self.import_edges(curriculum)
-        self.import_learning_assessment(curriculum, courses)
+        curricula, current_curriculum = self.import_curricula()
+        self.import_lecturers_and_assignments()
+        self.import_identifier_aliases()
+        courses = self.import_courses(current_curriculum)
+        self.import_edges(current_curriculum)
+        self.import_learning_assessment(current_curriculum, courses)
         self.import_attainment(courses)
-        self.import_students(curriculum, courses)
-        self.import_tasks(curriculum)
+        self.import_students(curricula, courses)
+        self.import_tasks(current_curriculum)
         return dict(self.counts)
 
     def record_skip(self, category: str, reason: str, count: int = 1) -> None:
@@ -316,15 +434,17 @@ class Importer:
         }
 
     def import_academic_governance(self) -> None:
-        registry = self.dataset.get("academicRuleRegistry") or sample_rule_registry()
+        registry = rule_registry(self.dataset)
         Package = self.models["rule_package"]
         Rule = self.models["rule"]
+        self.rule_packages_by_source: dict[str, tuple[str, int]] = {}
         activated_at = timezone.make_aware(datetime(2024, 8, 1))
         for item in registry.get("rulePackages", []):
             code = item.get("code") or item["id"].rsplit("-V", 1)[0]
+            version = item.get("version", 1)
             Package.objects.update_or_create(
                 code=code,
-                version=item.get("version", 1),
+                version=version,
                 defaults={
                     "cohort_from": item["cohortFrom"],
                     "cohort_to": item.get("cohortTo"),
@@ -347,7 +467,9 @@ class Importer:
                     "activated_at": activated_at,
                 },
             )
+            self.rule_packages_by_source[item["id"]] = (code, version)
             self.counts["rule_packages"] += 1
+            self.counts["grade_scale_rows"] += len(item.get("gradeScheme", []))
         for item in registry.get("rules", []):
             expression = item["expression"]
             Rule.objects.update_or_create(
@@ -372,12 +494,69 @@ class Importer:
             )
             self.counts["academic_rules"] += 1
 
-    def import_curriculum(self):
+    def import_curricula(self) -> tuple[dict[str, Any], Any]:
         CurriculumVersion = self.models["curriculum"]
         Outcome = self.models["outcome"]
         program = self.dataset["program"]
         metadata = self.dataset.get("importMetadata", {})
-        activation_valid = program.get("creditPolicy", {}).get("activationValid", False)
+        curricula: dict[str, Any] = {}
+        for item in canonical_curriculum_versions(self.dataset):
+            curriculum = CurriculumVersion.objects.filter(source_id=item["id"]).first()
+            if curriculum is None:
+                curriculum = CurriculumVersion.objects.filter(
+                    program_code=item["programId"],
+                    cohort_from=item["cohortFrom"],
+                    version=item.get("version", 1),
+                ).first()
+            if curriculum is None:
+                curriculum = CurriculumVersion()
+            old_public_id = curriculum.public_id if curriculum.pk else None
+            source_status = item.get("status", "review")
+            curriculum.source_id = item["id"]
+            curriculum.public_id = uuid.UUID(item["uuid"])
+            curriculum.program_code = item["programId"]
+            curriculum.program_name = program["program"]
+            curriculum.degree_level = program.get("degree", "sarjana")
+            curriculum.name = item["name"]
+            curriculum.curriculum_year = item["cohortFrom"]
+            curriculum.cohort_from = item["cohortFrom"]
+            curriculum.cohort_to = item.get("cohortTo")
+            curriculum.version = item.get("version", 1)
+            curriculum.status = "archived" if source_status == "archived-demo" else source_status
+            curriculum.checksum = item.get("checksum", "")
+            curriculum.source_checksum = self.checksum
+            curriculum.effective_from = parse_date(item.get("effectiveFrom"))
+            curriculum.effective_to = parse_date(item.get("effectiveTo"))
+            curriculum.created_by_actor_id = str(self.users["prodi"].pk)
+            curriculum.updated_by_actor_id = str(self.users["prodi"].pk)
+            curriculum.archive_reason = (
+                "Dataset v5: archived-demo" if curriculum.status == "archived" else ""
+            )
+            curriculum.approval_snapshot = {
+                "source_schema": self.dataset["schemaVersion"],
+                "source_file": self.dataset.get("source", {}).get("originalFileName"),
+                "source_sha256": self.checksum,
+                "dataset_snapshot": self.dataset.get("meta", {}).get("datasetSnapshot"),
+                "program_uuid": program.get("uuid"),
+                "credit_policy": program.get("creditPolicy", {}),
+                "import_metadata": metadata,
+                "source_status": source_status,
+                "source_record": item,
+                "activation_blocked": item.get("activationBlocked", False),
+                "activation_block_reason_codes": item.get("activationBlockReasonCodes", []),
+            }
+            curriculum.save()
+            if old_public_id and old_public_id != curriculum.public_id:
+                self.models["offering"].objects.filter(
+                    curriculum_version_public_id=old_public_id
+                ).update(curriculum_version_public_id=curriculum.public_id)
+                self.models["student"].objects.filter(curriculum_public_id=old_public_id).update(
+                    curriculum_public_id=curriculum.public_id
+                )
+            curricula[item["id"]] = curriculum
+            self.counts["curricula"] += 1
+
+        current = curricula["CURR-S1IF-2024-V1"]
         bk_weights = dict(
             proportional_allocations(
                 [
@@ -392,43 +571,16 @@ class Importer:
                 ]
             )
         )
-        curriculum, _ = CurriculumVersion.objects.update_or_create(
-            program_code=program["id"],
-            version=1,
-            defaults={
-                "public_id": uuid.UUID(program["uuid"]),
-                "program_name": program["program"],
-                "degree_level": program.get("degree", "sarjana"),
-                "name": f"Kurikulum {program['program']} {program['curriculumYear']}",
-                "curriculum_year": program["curriculumYear"],
-                "cohort_from": program["curriculumYear"],
-                "status": "draft" if activation_valid else "review",
-                "checksum": "",
-                "source_checksum": self.checksum,
-                "effective_from": parse_date("2024-08-01"),
-                "created_by_actor_id": str(self.users["prodi"].pk),
-                "updated_by_actor_id": str(self.users["prodi"].pk),
-                "approval_snapshot": {
-                    "source_schema": self.dataset["schemaVersion"],
-                    "source_file": self.dataset.get("source", {}).get("originalFileName"),
-                    "source_sha256": self.checksum,
-                    "dataset_snapshot": self.dataset.get("meta", {}).get("datasetSnapshot"),
-                    "credit_policy": program.get("creditPolicy", {}),
-                    "import_metadata": metadata,
-                },
-            },
-        )
         legacy_versions = CurriculumVersion.objects.filter(
             program_code="IF",
             version=1,
             name="Kurikulum Informatika OBE",
             approval_snapshot={},
-        ).exclude(pk=curriculum.pk)
+        ).exclude(pk__in=[row.pk for row in curricula.values()])
         for legacy in legacy_versions:
             legacy.status = "archived"
             legacy.archive_reason = "Digantikan oleh paket kurikulum v5"
             legacy.save(update_fields=["status", "archive_reason", "updated_at"])
-        self.counts["curricula"] += 1
         groups = (
             ("graduateProfiles", "PL"),
             ("cpl", "CPL"),
@@ -438,7 +590,7 @@ class Importer:
         for key, kind in groups:
             for item in self.dataset[key]:
                 Outcome.objects.update_or_create(
-                    curriculum=curriculum,
+                    curriculum=current,
                     kind=kind,
                     code=item["id"],
                     version=1,
@@ -462,7 +614,106 @@ class Importer:
                     },
                 )
                 self.counts[kind.lower()] += 1
-        return curriculum
+        return curricula, current
+
+    def import_lecturers_and_assignments(self) -> None:
+        LecturerProfile = self.models["lecturer"]
+        RoleAssignment = self.models["assignment"]
+        User = apps.get_model(settings.AUTH_USER_MODEL)
+        workload_by_lecturer = {
+            item["lecturerId"]: item for item in self.dataset.get("lecturerWorkloadSummary", [])
+        }
+        lecturer_profiles = {}
+        for item in self.dataset.get("lecturers", []):
+            if item["id"] == "DSN018":
+                user = self.users["pengampu"]
+            else:
+                user, created = User.objects.get_or_create(
+                    username=f"lecturer-{item['id'].lower()}"
+                )
+                if created:
+                    user.set_unusable_password()
+                user.is_active = False
+            user.first_name = item["name"][:150]
+            user.email = item.get("email", "")
+            user.save()
+            profile, _ = LecturerProfile.objects.update_or_create(
+                lecturer_id=item["id"],
+                defaults={
+                    "public_id": uuid.UUID(item["uuid"]),
+                    "user": user,
+                    "display_name": item["name"],
+                    "expertise": item.get("expertise", ""),
+                    "expertise_tags": item.get("expertiseTags", []),
+                    "identity_source": item.get("identitySource", ""),
+                    "source_status": item.get("recordStatus", ""),
+                    "workload_summary": workload_by_lecturer.get(item["id"], {}),
+                },
+            )
+            lecturer_profiles[item["id"]] = profile
+            self.counts["lecturers"] += 1
+
+        assignment_types = {
+            "DPA": ("dpa", "cohort-section"),
+            "COURSE_COORDINATOR": ("koordinator", "course"),
+        }
+        for item in self.dataset.get("identity", {}).get("scopedAssignments", []):
+            role, scope_type = assignment_types[item["type"]]
+            scope = item["scope"]
+            scope_id = (
+                f"{scope['cohort']}:{scope['section']}"
+                if item["type"] == "DPA"
+                else scope["courseCode"]
+            )
+            starts_at = timezone.make_aware(
+                datetime.combine(parse_date(item["effectiveFrom"]), datetime.min.time())
+            )
+            effective_to = parse_date(item.get("effectiveTo"))
+            expires_at = (
+                timezone.make_aware(
+                    datetime.combine(effective_to + timedelta(days=1), datetime.min.time())
+                )
+                if effective_to
+                else None
+            )
+            RoleAssignment.objects.update_or_create(
+                source_id=item["id"],
+                defaults={
+                    "source_public_id": uuid.UUID(item["uuid"]),
+                    "source_status": item.get("recordStatus", ""),
+                    "user": lecturer_profiles[item["lecturerId"]].user,
+                    "role": role,
+                    "scope_type": scope_type,
+                    "scope_id": scope_id,
+                    "actions": item["actions"],
+                    "period": item["id"],
+                    "starts_at": starts_at,
+                    "expires_at": expires_at,
+                    "revoked_at": None,
+                    "granted_by": self.users["prodi"],
+                },
+            )
+            self.counts["scoped_assignments"] += 1
+
+    def import_identifier_aliases(self) -> None:
+        IdentifierAlias = self.models["alias"]
+        aliases = self.dataset.get("identifierAliases", {})
+        for source_key, namespace in (
+            ("courseCodes", "course-code"),
+            ("courseOfferings", "course-offering"),
+        ):
+            for item in aliases.get(source_key, []):
+                IdentifierAlias.objects.update_or_create(
+                    namespace=namespace,
+                    legacy_identifier=item["legacy"],
+                    defaults={
+                        "id": stable_uuid("identifier-alias", namespace, item["legacy"]),
+                        "canonical_identifier": item["canonical"],
+                        "status": item.get("status", "resolved"),
+                        "source_checksum": self.checksum,
+                    },
+                )
+                self.counts["identifier_aliases"] += 1
 
     def import_courses(self, curriculum) -> dict[str, Any]:
         Course = self.models["course"]
@@ -1098,7 +1349,7 @@ class Importer:
             )
             self.counts["program_attainment"] += 1
 
-    def import_students(self, curriculum, courses: dict[str, Any]) -> None:
+    def import_students(self, curricula: dict[str, Any], courses: dict[str, Any]) -> None:
         StudentProfile = self.models["student"]
         AcademicStatus = self.models["status"]
         EnrollmentPlan = self.models["plan"]
@@ -1123,20 +1374,17 @@ class Importer:
                 if created:
                     user.set_unusable_password()
                     user.save(update_fields=["password"])
-            curriculum_reference = item.get("curriculumVersionId")
-            curriculum_public_id = (
-                curriculum.public_id
-                if curriculum_reference == "CURR-S1IF-2024-V1"
-                else stable_uuid("curriculum-reference", curriculum_reference)
-            )
+            curriculum_reference = item["curriculumVersionId"]
+            package_code, package_version = self.rule_packages_by_source[item["rulePackageId"]]
             student, _ = StudentProfile.objects.update_or_create(
                 student_number=item["nim"],
                 defaults={
                     "public_id": uuid.UUID(item["uuid"]),
                     "user": user,
                     "cohort": item["cohortYear"],
-                    "curriculum_public_id": curriculum_public_id,
-                    "rule_package": item.get("rulePackageId", "CURRENT-AABBC")[:32],
+                    "curriculum_public_id": curricula[curriculum_reference].public_id,
+                    "rule_package": package_code,
+                    "rule_package_version": package_version,
                 },
             )
             self.counts["students"] += 1

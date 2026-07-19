@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -20,6 +22,9 @@ class RoleAssignment(TimeStampedModel):
         TPMF = "tpmf", "TPMF"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    source_id = models.CharField(max_length=80, null=True, blank=True, unique=True)
+    source_public_id = models.UUIDField(null=True, blank=True, unique=True)
+    source_status = models.CharField(max_length=24, blank=True)
     role = models.CharField(max_length=24, choices=Role.choices)
     scope_type = models.CharField(max_length=80, default="global")
     scope_id = models.CharField(max_length=80, default="*")
@@ -65,6 +70,31 @@ class RoleAssignment(TimeStampedModel):
                 name="active_assignment_unique",
             )
         ]
+
+
+class LecturerProfile(TimeStampedModel):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="lecturer_profile",
+    )
+    lecturer_id = models.CharField(max_length=32, unique=True)
+    display_name = models.CharField(max_length=160)
+    expertise = models.TextField(blank=True)
+    expertise_tags = models.JSONField(default=list, blank=True)
+    identity_source = models.CharField(max_length=32, blank=True)
+    source_status = models.CharField(max_length=24, blank=True)
+    workload_summary = models.JSONField(default=dict, blank=True)
+
+    def clean(self):
+        if not self.lecturer_id.strip() or not self.display_name.strip():
+            raise ValidationError("Identitas dan nama dosen wajib")
+        if not isinstance(self.expertise_tags, list):
+            raise ValidationError("Tag keahlian dosen harus berupa daftar")
+
+    class Meta:
+        indexes = [models.Index(fields=["identity_source", "source_status"])]
 
 
 class AccountSecurity(TimeStampedModel):
