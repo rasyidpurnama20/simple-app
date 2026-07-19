@@ -1,0 +1,10 @@
+.git
+.env
+.venv
+node_modules
+staticfiles
+media
+var
+__pycache__
+*.pyc
+

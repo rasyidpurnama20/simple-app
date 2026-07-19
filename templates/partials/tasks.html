@@ -1,0 +1,6 @@
+<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+  <table class="w-full text-left text-sm"><thead class="bg-slate-50 text-slate-600"><tr><th class="px-4 py-3">Tugas</th><th class="px-4 py-3">Tenggat</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Prioritas</th></tr></thead><tbody class="divide-y divide-slate-100">
+  {% for task in tasks %}<tr><td class="px-4 py-3"><strong>{{ task.title }}</strong><div class="text-xs text-slate-500">{{ task.entity_type }} · {{ task.entity_id }}</div></td><td class="px-4 py-3">{{ task.due_at|date:"d M Y H:i" }}</td><td class="px-4 py-3"><span class="rounded-full bg-slate-100 px-2 py-1 text-xs">{{ task.status }}</span></td><td class="px-4 py-3">P{{ task.priority }}</td></tr>{% empty %}<tr><td colspan="4" class="px-4 py-10 text-center text-slate-500">Tidak ada tugas aktif.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+

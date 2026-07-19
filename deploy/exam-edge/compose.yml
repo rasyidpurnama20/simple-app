@@ -1,0 +1,50 @@
+name: obe-exam-edge
+services:
+  edge-db:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: exam_edge
+      POSTGRES_USER: exam_edge
+      POSTGRES_PASSWORD_FILE: /run/secrets/edge_db_password
+    secrets: [edge_db_password]
+    volumes: ["edge-db:/var/lib/postgresql/data"]
+    networks: [edge-internal]
+    restart: unless-stopped
+  edge-web:
+    image: "${OBE_IMAGE:?Set OBE_IMAGE to an immutable image digest}"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.exam_edge
+      DATABASE_URL_FILE: /run/secrets/edge_database_url
+      OBE_SECRET_KEY_FILE: /run/secrets/edge_secret_key
+      OBE_EXAM_SIGNING_KEY_FILE: /run/secrets/edge_signing_key
+      OBE_AI_ENABLED: "0"
+    secrets: [edge_database_url, edge_secret_key, edge_signing_key]
+    volumes: ["edge-responses:/app/var/exam"]
+    networks: [edge-internal, exam-vlan]
+    depends_on: [edge-db]
+    read_only: true
+    tmpfs: [/tmp]
+    restart: unless-stopped
+  sync-agent:
+    image: "${OBE_IMAGE:?Set OBE_IMAGE to an immutable image digest}"
+    command: ["python", "manage.py", "edge_sync"]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.exam_edge
+      DATABASE_URL_FILE: /run/secrets/edge_database_url
+      OBE_SECRET_KEY_FILE: /run/secrets/edge_secret_key
+      OBE_EXAM_SIGNING_KEY_FILE: /run/secrets/edge_signing_key
+      OBE_AI_ENABLED: "0"
+    secrets: [edge_database_url, edge_secret_key, edge_signing_key]
+    networks: [edge-internal]
+    restart: "no"
+secrets:
+  edge_db_password: {file: ./secrets/edge_db_password}
+  edge_database_url: {file: ./secrets/edge_database_url}
+  edge_secret_key: {file: ./secrets/edge_secret_key}
+  edge_signing_key: {file: ./secrets/edge_signing_key}
+networks:
+  edge-internal: {internal: true}
+  exam-vlan: {internal: true}
+volumes:
+  edge-db:
+  edge-responses:

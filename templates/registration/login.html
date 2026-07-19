@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Masuk · OBE Apps{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <p class="text-sm font-medium text-indigo-600">Platform mutu akademik</p>
+  <h1 class="mt-1 text-2xl font-bold">Masuk ke OBE Apps</h1>
+  <p class="mt-2 text-sm text-slate-600">Gunakan akun Prodi, GPM, Pengampu, atau Mahasiswa.</p>
+  {% if form.errors %}<p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">Username atau password tidak sesuai.</p>{% endif %}
+  <form method="post" class="mt-6 space-y-4">
+    {% csrf_token %}
+    <div><label for="id_username" class="mb-1 block text-sm font-medium">Username</label><input id="id_username" name="username" autocomplete="username" required autofocus class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"></div>
+    <div><label for="id_password" class="mb-1 block text-sm font-medium">Password</label><input id="id_password" name="password" type="password" autocomplete="current-password" required class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"></div>
+    <button class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700">Masuk</button>
+  </form>
+</div>
+{% endblock %}
+

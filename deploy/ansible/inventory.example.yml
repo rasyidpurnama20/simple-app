@@ -1,0 +1,9 @@
+all:
+  children:
+    obe_server:
+      hosts:
+        staging.example.internal:
+    exam_edge:
+      hosts:
+        exam-edge.example.internal:
+

@@ -1,0 +1,33 @@
+name: obe-observability
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro", "prometheus:/prometheus"]
+    networks: [observability]
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:12.0.1
+    environment: {GF_SERVER_ROOT_URL: "https://localhost/observability", GF_AUTH_ANONYMOUS_ENABLED: "false"}
+    volumes: ["grafana:/var/lib/grafana"]
+    networks: [observability]
+    restart: unless-stopped
+  loki:
+    image: grafana/loki:3.5.1
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes: ["loki:/loki"]
+    networks: [observability]
+    restart: unless-stopped
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.128.0
+    command: ["--config=/etc/otel/config.yml"]
+    volumes: ["./otel.yml:/etc/otel/config.yml:ro"]
+    networks: [observability]
+    restart: unless-stopped
+networks:
+  observability: {internal: true}
+volumes:
+  prometheus:
+  grafana:
+  loki:
+
