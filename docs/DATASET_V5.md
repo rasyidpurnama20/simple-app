@@ -19,8 +19,19 @@ Jika volume lokal masih memuat seed generik lama (`program_code=IF` tanpa proven
 Untuk file schema v5 lengkap:
 
 ```bash
-python manage.py import_obe_sample --path /path/ke/sample-data-2020-2026-obe-spec-v5.json
+python manage.py import_obe_sample \
+  --path /path/ke/sample-data-2020-2026-obe-spec-v5.json \
+  --report var/import-reconciliation-v5.json
 ```
+
+Laporan rekonsiliasi berisi checksum sumber serta kelompok `source`, `imported`,
+`skipped`, dan `errors`. Gunakan laporan ini sebagai bukti bahwa volume sumber
+sesuai dengan hasil import. Bagian dataset yang belum menjadi cakupan importer
+ditandai `not_in_current_import_scope`, sehingga tidak dapat keliru dianggap
+sudah tersimpan. Untuk file v5 lengkap saat ini, 56.119 enrollment
+`completed` menjadi `AcademicResult`; 16.404 `planned` dan 12.118 `upcoming`
+tetap tercatat pada `EnrollmentPlan` dan dilaporkan sebagai hasil yang dilewati.
+Enrollment yang belum selesai tidak boleh diberi nilai nol atau nilai huruf semu.
 
 Batasi data mahasiswa ketika melakukan smoke test:
 
@@ -28,7 +39,9 @@ Batasi data mahasiswa ketika melakukan smoke test:
 python manage.py import_obe_sample --path /path/ke/file.json --student-limit 10
 ```
 
-File invalid, terpotong, schema selain `5.0.0`, atau jumlah katalog yang tidak sesuai akan ditolak sebelum transaksi database dimulai.
+File invalid, terpotong, schema selain `5.0.0`, jumlah katalog yang tidak sesuai,
+status enrollment yang tidak dikenal, atau enrollment `completed` tanpa nilai
+akan ditolak sebelum transaksi database dimulai.
 
 ## Pemetaan ke model aplikasi
 
@@ -41,7 +54,8 @@ File invalid, terpotong, schema selain `5.0.0`, atau jumlah katalog yang tidak s
 | course attainment | `AttainmentSnapshot` scope course/program |
 | students | `StudentProfile` dan `AcademicStatus` |
 | semesterRecords.irs | `EnrollmentPlan` |
-| courseEnrollments | `AcademicResult` |
+| courseEnrollments berstatus `completed` | `AcademicResult` |
+| courseEnrollments `planned`/`upcoming` | Tetap pada `EnrollmentPlan`; bukan hasil studi |
 | academicRuleRegistry.rulePackages | `CohortRulePackage` |
 | academicRuleRegistry.rules | `AcademicRule` |
 | decision snapshot runtime | `AcademicDecision` |
@@ -56,3 +70,17 @@ File invalid, terpotong, schema selain `5.0.0`, atau jumlah katalog yang tidak s
 Credit policy v5 mencatat 129 SKS wajib dan `activationValid=false`. Importer mempertahankan fakta tersebut serta menempatkan kurikulum pada status `review`; gate aktivasi aplikasi tetap mensyaratkan tepat 126 SKS.
 
 Status `published-demo` pada RPS/instrumen sumber hanya berlaku untuk fixture. Importer menyimpannya sebagai provenance dan membuat desain aplikasi sebagai `draft`; tidak ada approval institusi yang dipalsukan.
+
+## Acceptance file penuh
+
+Acceptance lokal atau staging harus memakai file penuh tanpa `--student-limit`:
+
+```bash
+OBE_FULL_SAMPLE_PATH=/path/ke/sample-data-2020-2026-obe-spec-v5.json \
+  pytest tests/test_sample_import.py -k full_sample
+```
+
+Tes menjalankan import dua kali dan memverifikasi 1.597 mahasiswa, 12.776
+enrollment plan, 56.119 hasil studi selesai, rekonsiliasi 84.641 enrollment,
+serta idempotensi seluruh count. `--student-limit 0` hanya valid untuk smoke test
+domain non-mahasiswa dan tidak boleh dipakai sebagai bukti acceptance file penuh.

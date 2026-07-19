@@ -54,6 +54,11 @@ docker compose exec web python manage.py shell
 
 # Impor ulang dataset v5 secara idempotent
 docker compose exec web python manage.py import_obe_sample
+
+# Impor file v5 penuh dan simpan bukti rekonsiliasi
+docker compose exec web python manage.py import_obe_sample \
+  --path /data/sample-data-2020-2026-obe-spec-v5.json \
+  --report /app/var/import-reconciliation-v5.json
 ```
 
 ## Menjalankan tanpa Docker
@@ -150,7 +155,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 131 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, learning/assessment, evidence, identity, dan shared decision engine.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 133 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, learning/assessment, evidence, identity, dan shared decision engine. Acceptance file v5 penuh mengimpor seluruh mahasiswa tanpa `--student-limit`, lalu mengulang import untuk membuktikan idempotensi.
 
 ## Dokumentasi
 
