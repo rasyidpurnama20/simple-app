@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, connection, models, transaction
@@ -11,8 +11,6 @@ from django.utils import timezone
 
 from obe.shared.events import DEFAULT_CONSUMERS, create_outbox_event
 from obe.shared.models import AuditEvent, AuditReference, AuditSensitivePayload
-
-ModelT = TypeVar("ModelT", bound=models.Model)
 
 
 @dataclass(frozen=True)
@@ -129,7 +127,7 @@ def record_change(
     return audit
 
 
-def update_versioned(
+def update_versioned[ModelT: models.Model](
     instance: ModelT,
     *,
     expected_lock_version: int,
@@ -156,7 +154,9 @@ def update_versioned(
     return cast(ModelT, locked)
 
 
-def create_versioned(model: type[ModelT], *, actor_id: str, **fields: Any) -> ModelT:
+def create_versioned[ModelT: models.Model](
+    model: type[ModelT], *, actor_id: str, **fields: Any
+) -> ModelT:
     instance = model(
         **fields,
         created_by_actor_id=actor_id,
@@ -167,7 +167,9 @@ def create_versioned(model: type[ModelT], *, actor_id: str, **fields: Any) -> Mo
     return instance
 
 
-def run_with_deadlock_retry(operation: Callable[[], ModelT], *, attempts: int = 3) -> ModelT:
+def run_with_deadlock_retry[ModelT](
+    operation: Callable[[], ModelT], *, attempts: int = 3
+) -> ModelT:
     if attempts < 1:
         raise ValueError("attempts minimal 1")
     for attempt in range(attempts):
