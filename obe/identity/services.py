@@ -22,6 +22,12 @@ DEMO_ACTIONS = {
     "prodi": [
         "curriculum.view",
         "curriculum.edit",
+        "curriculum.clone",
+        "curriculum.import",
+        "curriculum.export",
+        "curriculum.approve",
+        "curriculum.activate",
+        "allocation.approve",
         "rps.approve",
         "quality.view",
         "analytics.view",
@@ -34,6 +40,9 @@ DEMO_ACTIONS = {
     ],
     "gpm": [
         "curriculum.view",
+        "curriculum.review",
+        "curriculum.validate",
+        "curriculum.diff",
         "rps.review",
         "quality.edit",
         "analytics.view",

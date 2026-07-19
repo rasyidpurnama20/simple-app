@@ -17,7 +17,18 @@ Prodi memantau kesehatan kurikulum, menilai temuan sebelum aktivasi, dan memberi
 1. Buka **Katalog** atau <http://localhost:8000/catalog/>.
 2. Pastikan katalog memuat 77 mata kuliah, 66 outcome, dan 90 SKS pilihan tersedia.
 3. Perhatikan status **Review** dan peringatan 129 SKS wajib. Gate aplikasi mensyaratkan tepat 126 SKS, sehingga data ini tidak boleh diaktifkan sebelum keputusan kurikulum dibuat.
-4. Catat kode mata kuliah yang akan diubah melalui PR/perubahan data berikutnya; jangan mengoreksi fixture sumber secara diam-diam.
+4. Periksa finding traceability: dataset saat ini tidak memetakan CPMK22 dan CPMK27. Jangan membuat relasi otomatis tanpa dasar keputusan akademik.
+5. Catat kode mata kuliah yang akan diubah melalui versi/clone berikutnya; jangan mengoreksi fixture sumber secara diam-diam.
+
+## Kelola versi dan mapping kurikulum
+
+1. Impor atau clone paket sebagai `draft`, lalu bandingkan perubahan PL/CPL/BK/mata kuliah/CPMK melalui diff.
+2. Periksa setiap kelompok bobot PL→CPL, CPL→BK, BK→mata kuliah, mata kuliah→CPMK, dan CPL→CPMK. Total parent harus 100±0,01.
+3. Bobot `derived-proportional` adalah usulan sistem. Berikan `approval_reference` hanya setelah dasar akademiknya diverifikasi; equal-split otomatis ditolak.
+4. Ajukan review, lampirkan dokumen pengesahan, lalu gunakan aktor berbeda untuk maker, reviewer, approver, dan activator.
+5. Setelah aktif, versi beserta outcome, mata kuliah, dan mapping menjadi immutable. Perubahan berikutnya dilakukan melalui clone; rollback hanya ke arsip ber-checksum valid.
+
+Contoh teknis dan prosedur recovery tersedia di [runbook kurikulum](../CURRICULUM_RUNBOOK.md).
 
 ## Kelola aturan dan package cohort
 

@@ -5,13 +5,14 @@
   <p class="text-sm font-semibold text-indigo-600">Dataset kurikulum v5</p>
   <h1 id="catalog-title" class="mt-1 text-3xl font-bold">Katalog Kurikulum</h1>
   {% if curriculum %}
-  <div class="mt-5 grid gap-3 sm:grid-cols-4">
+  <div class="mt-5 grid gap-3 sm:grid-cols-5">
     <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Status</p><p class="mt-1 font-bold">{{ curriculum.get_status_display }}</p></article>
     <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Outcome</p><p class="mt-1 font-bold">{{ curriculum.outcome_count }}</p></article>
     <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">SKS wajib</p><p class="mt-1 font-bold">{{ required_credits }}</p></article>
     <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">SKS pilihan tersedia</p><p class="mt-1 font-bold">{{ elective_credits }}</p></article>
+    <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Traceability</p><p class="mt-1 font-bold">{% if traceability_validation.valid and allocation_validation.valid %}Valid{% else %}Perlu tindak lanjut{% endif %}</p></article>
   </div>
-  {% if curriculum.status == "review" %}<p class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Kurikulum berada pada status review. Dataset mencatat {{ required_credits }} SKS wajib, sedangkan gate aktivasi mensyaratkan tepat 126 SKS.</p>{% endif %}
+  {% if curriculum.status == "review" %}<div class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p class="font-semibold">Aktivasi masih diblokir</p><p class="mt-1">Dataset mencatat {{ required_credits }} SKS wajib, sedangkan gate aktivasi mensyaratkan tepat 126 SKS. {% if allocation_validation.unapproved %}Terdapat {{ allocation_validation.unapproved|length }} mapping yang belum memiliki referensi approval.{% endif %}</p>{% if traceability_validation.gaps %}<ul class="mt-2 list-disc pl-5">{% for finding in traceability_validation.gaps %}<li>{{ finding.node.0 }} {{ finding.node.1 }}: {{ finding.missing }}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}
   <div class="mt-6 overflow-x-auto rounded-2xl border bg-white">
     <table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">Mata kuliah</th><th class="px-4 py-3">Semester</th><th class="px-4 py-3">SKS</th><th class="px-4 py-3">Jenis</th></tr></thead><tbody class="divide-y">{% for course in courses %}<tr><td class="px-4 py-3 font-mono text-xs">{{ course.code }}</td><td class="px-4 py-3 font-medium">{{ course.name }}</td><td class="px-4 py-3">{{ course.recommended_semester }}</td><td class="px-4 py-3">{{ course.credits }}</td><td class="px-4 py-3">{% if course.required %}Wajib{% else %}Pilihan{% endif %}</td></tr>{% endfor %}</tbody></table>
   </div>

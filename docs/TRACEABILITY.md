@@ -22,12 +22,12 @@
 | 16 | Cohort rule packages | package legacy/current, grade/SKS/milestone/graduation berversi, resolver tepat-satu dan seed v5 | Implemented |
 | 17 | Explanation/override/appeal | evidence rows/explanation, override terpisah berversi dan banding state machine dengan audit | Implemented |
 | 18 | Academic integrity validation | validator reason-code, issue workflow/optimistic lock, revalidation dan official-use gate | Implemented |
-| 19 | Curriculum versions | `curriculum.CurriculumVersion`, checksum | Baseline |
-| 20 | 5 PL dan 12 CPL | idempotent `seed_demo` | Baseline |
-| 21 | 18 bahan kajian dan depth | idempotent `seed_demo`, `Outcome.depth` | Baseline |
-| 22 | 77 courses dan semester map | idempotent `seed_demo`, 126 SKS wajib | Baseline |
-| 23 | 31 CPMK | idempotent `seed_demo` | Baseline |
-| 24 | Weighted traceability | `CurriculumEdge`, allocation validator | Baseline |
+| 19 | Curriculum versions | lifecycle draft/review/approval/active/archive, clone/diff/rollback, checksum, paket JSON/CSV | Implemented |
+| 20 | 5 PL dan 12 CPL | metadata/version, bobot/target, seed exact dan allocation gate | Implemented |
+| 21 | 18 bahan kajian dan depth | kategori, depth P/K/S 1–6, owner, gap/orphan validation | Implemented |
+| 22 | 77 courses dan semester map | metadata, progress/equivalence, gate tepat 126+18/144; sumber 129 SKS tetap blocking | Implemented |
+| 23 | 31 CPMK | metadata/version/target dan pemetaan eksplisit; gap sumber dilaporkan | Implemented |
+| 24 | Weighted traceability | graph dua arah, bobot 100±0,01, human approval, orphan/cycle/cross-version gate | Implemented |
 | 25 | Versioned RPS approval | `learning.RPSVersion`, publish service | Baseline |
 | 26 | CPMK-RPS/Sub-CPMK/indicator | versioned RPS semantic content | Baseline |
 | 27 | Weekly plan | `learning.WeeklyPlan` minggu 1–16 | Baseline |

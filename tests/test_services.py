@@ -15,7 +15,7 @@ from obe.ai.gateway import AIUnavailable, complete
 from obe.assessment.models import AssessmentInstrument, Submission
 from obe.assessment.services import grade_submission
 from obe.curriculum.models import Course, CurriculumEdge, CurriculumVersion
-from obe.curriculum.services import activate, allocation_report
+from obe.curriculum.services import allocation_report
 from obe.evidence.services import store
 from obe.learning.models import Attendance, CourseOffering, RPSVersion
 from obe.learning.services import attendance_eligibility, publish_rps
@@ -98,7 +98,7 @@ def test_assessment_grading():
 
 
 @pytest.mark.django_db
-def test_curriculum_activation_and_invalid_allocation():
+def test_curriculum_allocation_requires_approval_and_exact_total():
     curriculum = CurriculumVersion.objects.create(program_code="IF", name="OBE", cohort_from=2024)
     Course.objects.create(
         curriculum=curriculum,
@@ -125,16 +125,13 @@ def test_curriculum_activation_and_invalid_allocation():
         target_type="CPL",
         target_id="CPL01",
         allocation_weight=100,
+        approval_reference="SK-001",
     )
     assert allocation_report(curriculum)["valid"]
-    activated = activate(curriculum)
-    assert activated.status == "active" and len(activated.checksum) == 64
     edge = CurriculumEdge.objects.get(curriculum=curriculum)
     edge.allocation_weight = 99
     edge.save(update_fields=["allocation_weight"])
     assert not allocation_report(curriculum)["valid"]
-    with pytest.raises(ValidationError):
-        activate(curriculum)
 
 
 @pytest.mark.django_db

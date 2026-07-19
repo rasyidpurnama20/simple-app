@@ -85,6 +85,8 @@ Pekerjaan asinkron memakai antrean bounded dan worker terisolasi; perubahan doma
 
 Keamanan berlapis memakai rate limit per endpoint/aktor, scoped permission tunggal, account lock/MFA opsional, audit hash-chain append-only, serta feature flag dan kill switch berversi. Keputusan akademik memakai rule/package immutable, snapshot replay, override terpisah, dan gate integritas data; lihat [runbook aturan akademik](docs/ACADEMIC_RULES_RUNBOOK.md) dan [runbook integritas data](docs/DATA_INTEGRITY_RUNBOOK.md).
 
+Kurikulum memakai lifecycle maker-reviewer-approver-activator, paket JSON/CSV ber-checksum, clone/diff/rollback, serta weighted trace PL→CPL→BK→mata kuliah→CPMK. Lihat [runbook kurikulum](docs/CURRICULUM_RUNBOOK.md) dan [penerimaan PR-19–PR-24](docs/PR19_PR24_ACCEPTANCE.md). Dataset demo sengaja tetap `review` karena 129 SKS wajib dan CPMK22/CPMK27 belum memiliki mapping sumber.
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -146,7 +148,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 118 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence, identity, dan shared decision engine.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 122 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, evidence, identity, dan shared decision engine.
 
 ## Dokumentasi
 
@@ -160,6 +162,7 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Feature flag dan kill switch](docs/FEATURE_FLAG_RUNBOOK.md)
 - [Aturan, package cohort, decision, override, dan banding](docs/ACADEMIC_RULES_RUNBOOK.md)
 - [Validasi dan gate integritas data akademik](docs/DATA_INTEGRITY_RUNBOOK.md)
+- [Lifecycle, paket, dan traceability kurikulum](docs/CURRICULUM_RUNBOOK.md)
 - [Lingkungan, SOPS, rotasi, dan revokasi secret](docs/SECRETS_RUNBOOK.md)
 - [Deployment reproducible](docs/DEPLOYMENT_RUNBOOK.md)
 - [PostgreSQL dan concurrency](docs/DATABASE_RUNBOOK.md)
@@ -176,6 +179,7 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Audit penerimaan PR-08–PR-10](docs/PR08_PR10_ACCEPTANCE.md)
 - [Audit penerimaan PR-11–PR-14](docs/PR11_PR14_ACCEPTANCE.md)
 - [Audit penerimaan PR-15–PR-18](docs/PR15_PR18_ACCEPTANCE.md)
+- [Audit penerimaan PR-19–PR-24](docs/PR19_PR24_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

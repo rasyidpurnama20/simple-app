@@ -73,14 +73,23 @@ def load_dataset(path: Path) -> tuple[dict, str]:
     return dataset, hashlib.sha256(raw).hexdigest()
 
 
-def equal_allocations(targets: list[str]) -> list[tuple[str, Decimal]]:
-    unique_targets = list(dict.fromkeys(targets))
-    if not unique_targets:
+def proportional_allocations(
+    targets: list[tuple[str, Decimal]],
+) -> list[tuple[str, Decimal]]:
+    signals: dict[str, Decimal] = defaultdict(Decimal)
+    for target, signal in targets:
+        if signal > 0:
+            signals[target] += signal
+    if not signals:
         return []
-    unit = (Decimal("100") / len(unique_targets)).quantize(Decimal("0.0001"))
-    values = [(target, unit) for target in unique_targets[:-1]]
-    used = unit * len(values)
-    values.append((unique_targets[-1], Decimal("100") - used))
+    ordered = sorted(signals.items())
+    total = sum(signals.values(), Decimal("0"))
+    values = [
+        (target, (signal / total * Decimal("100")).quantize(Decimal("0.0001")))
+        for target, signal in ordered[:-1]
+    ]
+    used = sum((weight for _, weight in values), Decimal("0"))
+    values.append((ordered[-1][0], Decimal("100") - used))
     return values
 
 
@@ -182,16 +191,36 @@ class Importer:
         program = self.dataset["program"]
         metadata = self.dataset.get("importMetadata", {})
         activation_valid = program.get("creditPolicy", {}).get("activationValid", False)
+        bk_weights = dict(
+            proportional_allocations(
+                [
+                    (
+                        item["id"],
+                        sum(
+                            (decimal(value) for value in item["cplDepth"].values()),
+                            Decimal("0"),
+                        ),
+                    )
+                    for item in self.dataset["knowledgeAreas"]
+                ]
+            )
+        )
         curriculum, _ = CurriculumVersion.objects.update_or_create(
             program_code=program["id"],
             version=1,
             defaults={
                 "public_id": uuid.UUID(program["uuid"]),
+                "program_name": program["program"],
+                "degree_level": program.get("degree", "sarjana"),
                 "name": f"Kurikulum {program['program']} {program['curriculumYear']}",
+                "curriculum_year": program["curriculumYear"],
                 "cohort_from": program["curriculumYear"],
                 "status": "draft" if activation_valid else "review",
-                "checksum": self.checksum,
-                "effective_from": "2024-08-01",
+                "checksum": "",
+                "source_checksum": self.checksum,
+                "effective_from": parse_date("2024-08-01"),
+                "created_by_actor_id": str(self.users["prodi"].pk),
+                "updated_by_actor_id": str(self.users["prodi"].pk),
                 "approval_snapshot": {
                     "source_schema": self.dataset["schemaVersion"],
                     "source_file": self.dataset.get("source", {}).get("originalFileName"),
@@ -202,12 +231,16 @@ class Importer:
                 },
             },
         )
-        CurriculumVersion.objects.filter(
+        legacy_versions = CurriculumVersion.objects.filter(
             program_code="IF",
             version=1,
             name="Kurikulum Informatika OBE",
             approval_snapshot={},
-        ).exclude(pk=curriculum.pk).update(status="archived")
+        ).exclude(pk=curriculum.pk)
+        for legacy in legacy_versions:
+            legacy.status = "archived"
+            legacy.archive_reason = "Digantikan oleh paket kurikulum v5"
+            legacy.save(update_fields=["status", "archive_reason", "updated_at"])
         self.counts["curricula"] += 1
         groups = (
             ("graduateProfiles", "PL"),
@@ -228,7 +261,13 @@ class Importer:
                         "description": item.get("description") or item.get("name") or item["id"],
                         "category": item.get("category", ""),
                         "depth": item.get("knowledgeDepth"),
-                        "weight": decimal(item.get("weight")),
+                        "knowledge_depth": item.get("knowledgeDepth"),
+                        "skill_depth": item.get("skillDepth"),
+                        "attitude_depth": item.get("attitudeDepth"),
+                        "owner_role": item.get("ownerRole", ""),
+                        "weight": (
+                            bk_weights[item["id"]] if kind == "BK" else decimal(item.get("weight"))
+                        ),
                         "target": decimal(item.get("target"), "75"),
                         "status": "active",
                         "effective_from": parse_date(item.get("effectiveFrom")),
@@ -256,6 +295,7 @@ class Importer:
                         item.get("offering", "").lower(), "both"
                     ),
                     "prerequisites": item.get("prerequisiteCourseCodes", []),
+                    "equivalence_codes": item.get("equivalenceCourseCodes", []),
                     "capacity": item.get("capacityDefault", 40),
                     "status": "active",
                     "effective_from": parse_date(item.get("effectiveFrom")),
@@ -267,21 +307,32 @@ class Importer:
         return courses
 
     def import_edges(self, curriculum) -> None:
-        groups: dict[tuple[str, str, str], list[str]] = defaultdict(list)
+        groups: dict[tuple[str, str, str], list[tuple[str, Decimal]]] = defaultdict(list)
+        cpmk_weights = {
+            item["id"]: decimal(item.get("weight"), "1") for item in self.dataset["cpmk"]
+        }
         for cpl in self.dataset["cpl"]:
             for pl_id in cpl.get("plIds", []):
-                groups[("PL", pl_id, "CPL")].append(cpl["id"])
+                groups[("PL", pl_id, "CPL")].append((cpl["id"], decimal(cpl.get("weight"), "1")))
+        for area in self.dataset["knowledgeAreas"]:
+            for cpl_id, depth in area.get("cplDepth", {}).items():
+                groups[("CPL", cpl_id, "BK")].append((area["id"], decimal(depth, "1")))
         for cpl_id, cpmk_ids in self.dataset["cplToCpmk"].items():
-            groups[("CPL", cpl_id, "CPMK")].extend(cpmk_ids)
+            groups[("CPL", cpl_id, "CPMK")].extend(
+                (cpmk_id, cpmk_weights[cpmk_id]) for cpmk_id in cpmk_ids
+            )
         for course in self.dataset["courses"]:
             for cpmk_id in course.get("cpmkIds", []):
-                groups[("CPMK", cpmk_id, "COURSE")].append(course["code"])
+                groups[("COURSE", course["code"], "CPMK")].append((cpmk_id, cpmk_weights[cpmk_id]))
             for area_id in course.get("knowledgeAreaIds", []):
-                groups[("BK", area_id, "COURSE")].append(course["code"])
+                groups[("BK", area_id, "COURSE")].append(
+                    (course["code"], decimal(course.get("sks"), "1"))
+                )
         Edge = self.models["edge"]
+        desired_pks = []
         for (source_type, source_id, target_type), targets in groups.items():
-            for target_id, weight in equal_allocations(targets):
-                Edge.objects.update_or_create(
+            for target_id, weight in proportional_allocations(targets):
+                edge, _ = Edge.objects.update_or_create(
                     curriculum=curriculum,
                     source_type=source_type,
                     source_id=source_id,
@@ -293,10 +344,16 @@ class Importer:
                             "edge", source_type, source_id, target_type, target_id
                         ),
                         "allocation_weight": weight,
+                        "allocation_method": "derived-proportional",
+                        "approval_reference": "",
+                        "is_unallocated": False,
                         "status": "active",
+                        "effective_from": curriculum.effective_from,
                     },
                 )
+                desired_pks.append(edge.pk)
                 self.counts["edges"] += 1
+        Edge.objects.filter(curriculum=curriculum).exclude(pk__in=desired_pks).delete()
 
     def import_attainment(self, courses: dict[str, Any]) -> None:
         Snapshot = self.models["snapshot"]

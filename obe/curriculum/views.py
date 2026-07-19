@@ -3,6 +3,7 @@ from django.db.models import Count, Sum
 from django.shortcuts import render
 
 from obe.curriculum.models import CurriculumVersion
+from obe.curriculum.services import allocation_report, catalog_report, traceability_report
 
 
 @login_required
@@ -18,6 +19,7 @@ def catalog(request):
     )
     courses = []
     required_credits = elective_credits = 0
+    catalog_validation = allocation_validation = traceability_validation = None
     if curriculum:
         courses = curriculum.courses.order_by("recommended_semester", "code")
         required_credits = (
@@ -26,6 +28,9 @@ def catalog(request):
         elective_credits = (
             courses.filter(required=False).aggregate(total=Sum("credits"))["total"] or 0
         )
+        catalog_validation = catalog_report(curriculum)
+        allocation_validation = allocation_report(curriculum)
+        traceability_validation = traceability_report(curriculum)
     return render(
         request,
         "curriculum/catalog.html",
@@ -34,5 +39,8 @@ def catalog(request):
             "courses": courses,
             "required_credits": required_credits,
             "elective_credits": elective_credits,
+            "catalog_validation": catalog_validation,
+            "allocation_validation": allocation_validation,
+            "traceability_validation": traceability_validation,
         },
     )
