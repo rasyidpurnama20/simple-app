@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "scope": "automated application and deployment baseline",
+  "finding_summary": {"critical": 0, "high": 0},
+  "controls": [
+    {"id": "SEC-APP", "owner": "platform", "evidence": "tests/test_pr11_pr14.py::test_pr11_security_headers_rate_limit_and_admin_network_boundary"},
+    {"id": "SEC-NET", "owner": "security", "evidence": "tests/test_pr11_pr14.py::test_pr11_deployment_has_deny_by_default_zones_and_no_private_ports"},
+    {"id": "SEC-RBAC", "owner": "prodi", "evidence": "tests/test_pr11_pr14.py::test_pr12_scoped_permission_prevents_idor_and_expired_assignment"},
+    {"id": "SEC-AUDIT", "owner": "auditor", "evidence": "tests/test_pr11_pr14.py::test_pr13_audit_is_redacted_chained_append_only_and_tamper_evident"}
+  ],
+  "limitations": "Bukan pengganti authenticated DAST, network scan, dan penetration test pada staging institusi."
+}

@@ -2,15 +2,19 @@ import hashlib
 import json
 
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from obe.analytics.serializers import AnalyticsFilterSerializer
 from obe.assessment.selectors import semantic_attainment
+from obe.identity.services import can
 
 
 class SemanticAnalyticsView(APIView):
     def get(self, request):
+        if not can(request.user, "analytics.view"):
+            raise PermissionDenied("Akses analytics ditolak")
         filters = AnalyticsFilterSerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
         metric = filters.validated_data["metric"]

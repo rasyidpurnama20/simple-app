@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.db.models import Count
 
+from obe.shared.audit import purge_expired_sensitive_payloads
 from obe.shared.events import consume_event, publish_outbox_batch, recover_stale_outbox
 from obe.shared.jobs import create_job, reconcile_stale_jobs
 from obe.shared.models import JobExecution
@@ -87,6 +88,11 @@ def reconcile_stale_work() -> dict[str, int]:
         "requeued_jobs": requeued_jobs,
         "cancelled_jobs": cancelled_jobs,
     }
+
+
+@shared_task
+def enforce_audit_retention() -> dict[str, int]:
+    return {"purged_sensitive_payloads": purge_expired_sensitive_payloads()}
 
 
 @shared_task

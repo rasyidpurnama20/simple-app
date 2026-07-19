@@ -17,6 +17,7 @@ from django.utils import timezone
 from obe.evidence.models import EvidenceRecord
 from obe.identity.services import can
 from obe.shared.models import FileManifest
+from obe.shared.security import isolated_upload_name
 from obe.shared.services import ActorContext, record_change
 from obe.shared.telemetry import record_file_access, span
 
@@ -52,6 +53,21 @@ def _digest_file(path: Path) -> tuple[str, int]:
 def _prepare_private_directory(path: Path) -> None:
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     path.chmod(0o700)
+
+
+def _validate_file_signature(path: Path, mime_type: str) -> None:
+    with path.open("rb") as stream:
+        header = stream.read(16)
+    signatures = {
+        "application/pdf": (b"%PDF-",),
+        "image/png": (b"\x89PNG\r\n\x1a\n",),
+        "image/jpeg": (b"\xff\xd8\xff",),
+    }
+    expected = signatures.get(mime_type)
+    if expected and not any(header.startswith(signature) for signature in expected):
+        raise ValidationError("Signature file tidak cocok dengan MIME type")
+    if mime_type == "text/csv" and (b"\x00" in header or not header):
+        raise ValidationError("Konten CSV tidak aman")
 
 
 def _clamav_scan(path: Path) -> str:
@@ -92,6 +108,13 @@ def store(
         raise ValidationError("Ukuran bukti harus 1 byte sampai 25 MiB")
     if uploaded.content_type not in ALLOWED_MIME:
         raise ValidationError("Tipe file tidak diizinkan")
+    try:
+        original_name = isolated_upload_name(
+            uploaded.name,
+            allowed_extensions={".pdf", ".png", ".jpg", ".jpeg", ".csv"},
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
     if classification not in FileManifest.Classification.values:
         raise ValidationError("Klasifikasi bukti tidak valid")
     if version < 1:
@@ -123,6 +146,7 @@ def store(
             os.fsync(handle.fileno())
         if written != uploaded.size:
             raise ValidationError("Ukuran upload tidak cocok dengan byte yang diterima")
+        _validate_file_signature(staged, uploaded.content_type)
 
         sha = digest.hexdigest()
         scan_status = FileManifest.ScanStatus.SKIPPED
@@ -153,7 +177,7 @@ def store(
             period=period,
             version=version,
             classification=classification,
-            original_filename=Path(uploaded.name).name[:255],
+            original_filename=original_name,
             content_path=str(target.relative_to(root)),
             scan_status=scan_status,
             scanner_signature=scanner_signature,
@@ -217,7 +241,17 @@ def can_access(user, record: EvidenceRecord) -> bool:
     if not user.is_authenticated:
         return False
     owner_match = record.manifest.owner_id in {str(user.pk), user.get_username()}
-    return owner_match or can(user, "evidence.download") or can(user, "evidence.verify")
+    scope = {
+        "scope_type": record.object_type,
+        "scope_id": record.object_id,
+        "period": record.manifest.period,
+        "owner_id": record.manifest.owner_id,
+    }
+    return (
+        owner_match
+        or can(user, "evidence.download", **scope)
+        or can(user, "evidence.verify", **scope)
+    )
 
 
 def issue_download_token(record: EvidenceRecord, user) -> str:

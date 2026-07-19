@@ -7,8 +7,9 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 ## Masuk dan lihat capaian
 
 1. Masuk di <http://localhost:8000/accounts/login/> dengan username `gpm`.
-2. Pada dashboard, tunggu label **12 CPL terverifikasi**.
-3. Buka tabel alternatif di bawah grafik radar dan bandingkan setiap nilai aktual dengan target 75.
+2. Pastikan assignment mutu masih aktif sebelum membuka analytics atau bukti lintas mata kuliah; akses yang dicabut langsung membatalkan sesi lama.
+3. Pada dashboard, tunggu label **12 CPL terverifikasi**.
+4. Buka tabel alternatif di bawah grafik radar dan bandingkan setiap nilai aktual dengan target 75.
 
 ## Verifikasi scope program dan mata kuliah
 

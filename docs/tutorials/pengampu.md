@@ -7,8 +7,9 @@ Pengampu memakai katalog dan pemetaan capaian untuk menyiapkan RPS, asesmen, ser
 ## Masuk dan pilih mata kuliah
 
 1. Masuk di <http://localhost:8000/accounts/login/> dengan username `pengampu`.
-2. Buka **Katalog** dan cari `MIK1624101` — Dasar Sistem.
-3. Catat semester, SKS, dan jenis mata kuliah sebagai baseline penyusunan RPS.
+2. Akses RPS, asesmen, file, AI, dan background job mengikuti assignment mata kuliah/periode yang sama; URL object di luar scope akan ditolak.
+3. Buka **Katalog** dan cari `MIK1624101` — Dasar Sistem.
+4. Catat semester, SKS, dan jenis mata kuliah sebagai baseline penyusunan RPS.
 
 ## Periksa capaian mata kuliah
 

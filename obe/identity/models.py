@@ -48,6 +48,14 @@ class RoleAssignment(TimeStampedModel):
             raise ValidationError("Self-assignment tidak diizinkan")
         if self.expires_at and self.expires_at <= self.starts_at:
             raise ValidationError("Expiry harus setelah waktu mulai")
+        if (
+            not isinstance(self.actions, list)
+            or not self.actions
+            or any(not isinstance(action, str) or not action.strip() for action in self.actions)
+        ):
+            raise ValidationError("Assignment wajib memiliki daftar aksi valid")
+        if self.scope_id != "*" and not self.scope_id.strip():
+            raise ValidationError("Scope assignment tidak valid")
 
     class Meta:
         constraints = [
@@ -57,3 +65,41 @@ class RoleAssignment(TimeStampedModel):
                 name="active_assignment_unique",
             )
         ]
+
+
+class AccountSecurity(TimeStampedModel):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="security_profile",
+    )
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    password_reset_required = models.BooleanField(default=False)
+    mfa_enabled = models.BooleanField(default=False)
+    mfa_enrolled_at = models.DateTimeField(null=True, blank=True)
+    permission_epoch = models.PositiveIntegerField(default=1)
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    @property
+    def locked(self) -> bool:
+        return self.locked_until is not None and self.locked_until > timezone.now()
+
+    def clean(self):
+        if self.mfa_enabled and self.mfa_enrolled_at is None:
+            raise ValidationError("MFA aktif wajib memiliki waktu enrollment")
+
+
+class MFAChallenge(TimeStampedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    @property
+    def usable(self) -> bool:
+        return self.consumed_at is None and self.expires_at > timezone.now() and self.attempts < 5
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "expires_at"])]
