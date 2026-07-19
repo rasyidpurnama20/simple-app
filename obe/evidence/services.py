@@ -237,6 +237,44 @@ def transition(
     return locked
 
 
+@transaction.atomic
+def revise(
+    record: EvidenceRecord, *, replacement_manifest: FileManifest, actor_id: str, reason: str
+) -> EvidenceRecord:
+    """Create a new evidence revision without replacing a reviewed manifest."""
+    locked = EvidenceRecord.objects.select_for_update().select_related("manifest").get(pk=record.pk)
+    if locked.status not in {EvidenceRecord.Status.REJECTED, EvidenceRecord.Status.VERIFIED}:
+        raise ValidationError("Revisi evidence hanya untuk bukti rejected atau verified")
+    if not reason.strip() or replacement_manifest.pk == locked.manifest_id:
+        raise ValidationError("Revisi evidence memerlukan alasan dan manifest baru")
+    expected_object = f"{locked.object_type}:{locked.object_id}"
+    if replacement_manifest.academic_object != expected_object:
+        raise ValidationError("Manifest revisi harus menunjuk objek akademik yang sama")
+    revision_path = [*locked.revision_path, str(locked.public_id)]
+    replacement = EvidenceRecord.objects.create(
+        manifest=replacement_manifest,
+        object_type=locked.object_type,
+        object_id=locked.object_id,
+        supersedes=locked,
+        revision_path=revision_path,
+        source_status="revision",
+    )
+    if locked.status == EvidenceRecord.Status.VERIFIED:
+        locked.status = EvidenceRecord.Status.SUPERSEDED
+        locked.save(update_fields=["status", "updated_at"])
+    record_change(
+        actor=ActorContext(actor_id, actor_id, "evidence"),
+        action="evidence.revise",
+        object_type="evidence",
+        object_id=str(replacement.public_id),
+        summary="Revisi evidence dibuat sebagai record baru",
+        before={"evidence": str(locked.public_id), "status": record.status},
+        after={"evidence": str(replacement.public_id), "status": replacement.status},
+        reason=reason,
+    )
+    return replacement
+
+
 def can_access(user, record: EvidenceRecord) -> bool:
     if not user.is_authenticated:
         return False

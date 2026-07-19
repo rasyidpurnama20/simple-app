@@ -51,6 +51,14 @@ Publication, attainment, eligibility, kelulusan, laporan mutu, dan official sync
 5. Perubahan kebijakan/perkuliahan berikutnya dimulai dari clone versi baru dengan alasan revisi. Rollback dilakukan sebagai versi baru, bukan mengubah snapshot lama.
 6. Gunakan laporan rubrik dan second-marker untuk memantau konsistensi grading; regrade wajib menyimpan rubrik baru, alasan, nilai lama, dan audit.
 
+## Setujui ujian paralel dan koreksi nilai
+
+1. Pastikan GPM sudah mereview minimal dua question set dalam parallel group serta menyatakan coverage/difficulty ekuivalen.
+2. Periksa kebijakan aktif. Jika `strict_same_question` aktif, soal berbeda harus diblokir; bila tidak aktif, alasan perbedaan tetap wajib.
+3. Setujui sebagai aktor yang berbeda dari reviewer. Question set baru dapat dirilis setelah approval ini.
+4. Pantau disparity pascaujian dan minta tindak lanjut mutu bila melewati threshold; jangan menyamakan nilai kelas secara otomatis.
+5. Pada perubahan score published, pastikan reason dan recalculation tersedia. Maker tidak boleh menjadi checker; approval membuat versi score baru serta notifikasi, sedangkan nilai lama tetap auditable.
+
 ## Kerjakan approval task
 
 1. Buka **Tugas Saya**.

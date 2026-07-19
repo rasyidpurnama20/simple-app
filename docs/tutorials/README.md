@@ -1,6 +1,6 @@
 # Tutorial Aktor
 
-Tutorial ini mengikuti empat peran utama aplikasi. Semua langkah mengacu pada fitur saat ini: autentikasi/scoped assignment, kurikulum, lifecycle RPS, CPMK-RPS/Sub-CPMK/indikator, 16 minggu, blueprint asesmen, rubrik/butir/grading, rule/decision, integrity issue, dashboard, dan kemajuan pribadi.
+Tutorial ini mengikuti empat peran utama aplikasi. Semua langkah mengacu pada fitur saat ini: autentikasi/scoped assignment, kurikulum, lifecycle RPS, CPMK-RPS/Sub-CPMK/indikator, 16 minggu, ujian paralel, eligibility UAS, blueprint asesmen, submission, rubrik/grading, rule/decision, integrity issue, dashboard, dan kemajuan pribadi.
 
 | Aktor | Fokus utama | Tutorial |
 |---|---|---|

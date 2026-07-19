@@ -49,6 +49,14 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 5. Jika ada masalah, beri komentar pada field spesifik lalu **Kembalikan**. Jika valid, lanjutkan ke approval Prodi. Checksum akan mencegah approval stale ketika Pengampu mengubah payload sesudah review.
 6. Selama semester, bandingkan planned-vs-actual. Deviasi harus memiliki alasan dan evidence; lakukan verifikasi sesuai assignment mutu.
 
+## Moderasi ujian paralel
+
+1. Buka question set pada parallel group yang sama dan pastikan jenis ujian, coverage, difficulty, serta checksum tersedia.
+2. Bila soal berbeda, periksa alasan dan equivalence report. Tolak bila group kosong, blueprint tidak ekuivalen, atau bukti tidak cukup.
+3. Selesaikan review GPM dan teruskan ke Prodi; reviewer GPM tidak boleh menjadi approver Prodi.
+4. Setelah hasil tersedia, jalankan analisis disparity. Selisih di atas threshold menjadi temuan mutu untuk ditindaklanjuti, bukan alasan mengubah nilai otomatis.
+5. Saat memeriksa eligibility UAS, gunakan snapshot held-only denominator, roster/IRS, reason code, source version, dan status override resmi.
+
 ## Hasil yang diharapkan
 
 - GPM dapat membedakan agregat program dan mata kuliah.

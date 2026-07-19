@@ -33,6 +33,16 @@ Rubrik mendukung analytic, holistic, checklist, numeric, dan pass/fail. Kriteria
 
 Regrade tidak mengubah score lama. `regrade_submission()` membutuhkan alasan dan rubrik dengan `public_id` baru, lalu membuat score baru yang menyimpan `supersedes_score` dan audit before/after.
 
+## Ujian kelas paralel
+
+Setiap question set UTS/UAS menyimpan checksum blueprint dan soal. GPM membandingkan coverage serta difficulty, mencatat alasan bila soal berbeda, lalu Prodi yang berbeda menyetujui equivalence review. Question set hanya dapat dirilis setelah approval. Kebijakan `strict_same_question` dapat mewajibkan soal identik; default mengizinkan soal berbeda hanya bila ekuivalen dan disetujui. Setelah ujian, `analyze_parallel_results()` menandai disparity di atas threshold untuk tindak lanjut mutu tanpa memodifikasi nilai mahasiswa.
+
+## Kehadiran, submission, dan koreksi nilai
+
+Eligibility UAS dihitung dari roster aktif dan IRS approved. Denominator hanya aktivitas terlaksana; cancelled/exempt tidak dihitung. Snapshot menyimpan persen, count, activity ID, reason code, rule version, source version, dan official override bila ada.
+
+Submission memakai draft yang dapat diganti, final ber-receipt checksum yang immutable, serta reopening resmi beralasan. Deadline, late policy, attempt, anggota grup, dan duplikasi evidence divalidasi. Feedback menunjuk kriteria/outcome. Perubahan nilai published memakai `ScoreRevision`: maker dan checker berbeda, score lama dipertahankan, dan score baru menyimpan recalculation serta `supersedes_score`.
+
 ## Seed demo v5
 
 Seed default mengimpor irisan kanonik `MIK1624101` dari schema v5: satu RPS, satu CPMK-RPS, tiga Sub-CPMK, tiga indikator, 16 minggu, enam instrumen (10+20+10+20+20+20), dua rubrik, dan butir terkontrol. Status sumber `published-demo/fixture-only` disimpan sebagai provenance, tetapi record aplikasi tetap `draft` karena kurikulum sumber masih `review`.

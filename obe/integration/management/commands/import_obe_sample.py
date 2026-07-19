@@ -400,7 +400,12 @@ class Importer:
         self.import_identifier_aliases()
         courses = self.import_courses(current_curriculum)
         self.import_edges(current_curriculum)
-        self.import_learning_assessment(current_curriculum, courses)
+        if self.dataset.get("courseOfferings") and self.dataset.get("learning", {}).get(
+            "rpsVersions"
+        ):
+            self.import_stage3_operational_data(curricula, courses)
+        else:
+            self.import_learning_assessment(current_curriculum, courses)
         self.import_attainment(courses)
         self.import_students(curricula, courses)
         self.import_tasks(current_curriculum)
@@ -652,6 +657,7 @@ class Importer:
             )
             lecturer_profiles[item["id"]] = profile
             self.counts["lecturers"] += 1
+        self.lecturers_by_source = lecturer_profiles
 
         assignment_types = {
             "DPA": ("dpa", "cohort-section"),
@@ -1240,6 +1246,402 @@ class Importer:
         rps.save(update_fields=["content", "updated_at"])
         self.counts["course_offerings"] += 1
         self.counts["rps_versions"] += 1
+
+    def import_stage3_operational_data(
+        self, curricula: dict[str, Any], courses: dict[str, Any]
+    ) -> None:
+        """Import every v5 offering, RPS design row, rubric, and assessment plan."""
+        Offering = self.models["offering"]
+        RPS = self.models["rps"]
+        CourseOutcome = self.models["course_outcome"]
+        SubOutcome = self.models["sub_outcome"]
+        Indicator = self.models["indicator"]
+        WeeklyPlan = self.models["weekly_plan"]
+        Instrument = self.models["instrument"]
+        Rubric = self.models["rubric"]
+        Criterion = self.models["criterion"]
+        Level = self.models["level"]
+        Item = self.models["item"]
+
+        def source_uuid(row: dict, *parts: object) -> uuid.UUID:
+            value = row.get("uuid")
+            return uuid.UUID(value) if value else stable_uuid(*parts)
+
+        def semester_value(value: object) -> str:
+            normalized = str(value or "odd").strip().lower()
+            return {
+                "1": "odd",
+                "ganjil": "odd",
+                "odd": "odd",
+                "2": "even",
+                "genap": "even",
+                "even": "even",
+            }.get(normalized, normalized[:12])
+
+        def semester_dates(academic_year: str, semester: str) -> tuple[date, date]:
+            first_year = int(str(academic_year).split("/", 1)[0])
+            if semester == "even":
+                return date(first_year + 1, 2, 1), date(first_year + 1, 6, 30)
+            return date(first_year, 8, 1), date(first_year, 12, 31)
+
+        offerings_by_source: dict[str, Any] = {}
+        offerings_by_course: dict[str, list[Any]] = defaultdict(list)
+        for row in self.dataset.get("courseOfferings", []):
+            source_id = row["id"]
+            course_code = row.get("courseCode") or row.get("course", {}).get("code")
+            if course_code not in courses:
+                raise CommandError(f"Course offering {source_id}: course {course_code!r} tidak ada")
+            academic_year = str(row.get("academicYear") or row.get("year") or "2024/2025")
+            semester = semester_value(row.get("semester") or row.get("term"))
+            starts_on, ends_on = semester_dates(academic_year, semester)
+            lecturer_ids = row.get("lecturerIds") or row.get("lecturers") or []
+            coordinator_id = row.get("coordinatorLecturerId") or row.get("coordinatorId")
+            coordinator_profile = self.lecturers_by_source.get(coordinator_id)
+            if coordinator_profile is None and lecturer_ids:
+                coordinator_profile = self.lecturers_by_source.get(lecturer_ids[0])
+            coordinator = (
+                coordinator_profile.user if coordinator_profile else self.users["pengampu"]
+            )
+            curriculum = curricula.get(row.get("curriculumVersionId"))
+            if curriculum is None:
+                curriculum = curricula.get("CURR-S1IF-2024-V1") or next(iter(curricula.values()))
+            class_code = str(row.get("classCode") or row.get("section") or row.get("class") or "A")
+            offering, _ = Offering.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "public_id": source_uuid(row, "offering", source_id),
+                    "course_public_id": courses[course_code].public_id,
+                    "curriculum_version_public_id": curriculum.public_id,
+                    "academic_year": academic_year,
+                    "semester": semester,
+                    "class_code": class_code,
+                    "parallel_group": row.get("parallelGroupId")
+                    or row.get("parallelGroup")
+                    or f"PG-{academic_year}-{semester}-{course_code}",
+                    "coordinator": coordinator,
+                    "schedule": row.get("schedule") or row.get("meetingPlan") or {},
+                    "room": str(row.get("room") or row.get("roomCode") or ""),
+                    "capacity": int(row.get("capacity") or row.get("capacityDefault") or 40),
+                    "status": row.get("status", "active"),
+                    "delivery_mode": row.get("deliveryMode", "regular"),
+                    "calendar_configuration": row.get("calendarConfiguration", {}),
+                    "starts_on": parse_date(row.get("startsOn")) or starts_on,
+                    "ends_on": parse_date(row.get("endsOn")) or ends_on,
+                    "created_by_actor_id": str(coordinator.pk),
+                    "updated_by_actor_id": str(coordinator.pk),
+                },
+            )
+            lecturer_users = [
+                self.lecturers_by_source[item].user
+                for item in lecturer_ids
+                if item in self.lecturers_by_source
+            ]
+            offering.lecturers.set(lecturer_users or [coordinator])
+            offerings_by_source[source_id] = offering
+            offerings_by_course[course_code].append(offering)
+            self.counts["course_offerings"] += 1
+
+        learning = self.dataset["learning"]
+        outcomes_by_rps: dict[str, list[dict]] = defaultdict(list)
+        subs_by_outcome: dict[str, list[dict]] = defaultdict(list)
+        indicators_by_sub: dict[str, list[dict]] = defaultdict(list)
+        weeks_by_rps: dict[str, list[dict]] = defaultdict(list)
+        for row in learning.get("courseOutcomes", []):
+            outcomes_by_rps[row["rpsVersionId"]].append(row)
+        for row in learning.get("subOutcomes", []):
+            subs_by_outcome[row["courseOutcomeId"]].append(row)
+        for row in learning.get("indicators", []):
+            indicators_by_sub[row["subOutcomeId"]].append(row)
+        for row in learning.get("weeklyPlans", []):
+            weeks_by_rps[row["rpsVersionId"]].append(row)
+
+        rps_by_source: dict[str, Any] = {}
+        sub_by_source: dict[str, Any] = {}
+        indicator_by_source: dict[str, Any] = {}
+        for row in learning.get("rpsVersions", []):
+            source_id = row["id"]
+            course_code = row["courseCode"]
+            offering = offerings_by_source.get(row.get("courseOfferingId"))
+            if offering is None:
+                candidates = offerings_by_course.get(course_code, [])
+                if not candidates:
+                    raise CommandError(f"RPS {source_id}: offering {course_code!r} tidak ada")
+                academic_year = row.get("effectiveAcademicYear")
+                offering = next(
+                    (item for item in candidates if item.academic_year == academic_year),
+                    candidates[0],
+                )
+            rps, _ = RPS.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "public_id": source_uuid(row, "rps", source_id),
+                    "offering": offering,
+                    "version": int(row.get("version", 1)),
+                    "status": "draft",
+                    "content": {
+                        "references": row.get("references") or ["Dataset OBE schema v5"],
+                        "learning_materials": row.get("learningMaterials")
+                        or [courses[course_code].name],
+                        "source_status": row.get("status"),
+                        "publication_scope": row.get("publicationScope"),
+                        "source_ref": row.get("sourceRef", {"recordKey": source_id}),
+                        "source_checksum": self.checksum,
+                    },
+                    "total_assessment_weight": decimal(row.get("assessmentWeightTotal"), "100"),
+                    "authored_by": offering.coordinator,
+                    "effective_from": offering.starts_on,
+                    "created_by_actor_id": str(offering.coordinator_id),
+                    "updated_by_actor_id": str(offering.coordinator_id),
+                },
+            )
+            rps_by_source[source_id] = rps
+            outcome_map: dict[str, Any] = {}
+            for order, outcome_row in enumerate(outcomes_by_rps[source_id], 1):
+                program_cpmk = outcome_row["programCpmkId"]
+                cpl_ids = [
+                    cpl_id
+                    for cpl_id, cpmk_ids in self.dataset["cplToCpmk"].items()
+                    if program_cpmk in cpmk_ids
+                ]
+                outcome, _ = CourseOutcome.objects.update_or_create(
+                    rps=rps,
+                    code=outcome_row["localCode"],
+                    defaults={
+                        "public_id": source_uuid(outcome_row, "course-outcome", outcome_row["id"]),
+                        "description": outcome_row["description"],
+                        "bloom_level": outcome_row.get("bloomLevel", "apply"),
+                        "target": decimal(outcome_row.get("target"), "75"),
+                        "weight": decimal(outcome_row.get("weight"), "100"),
+                        "order": outcome_row.get("order", order),
+                        "program_cpmk_ids": [program_cpmk],
+                        "cpl_ids": cpl_ids,
+                        "status": "active",
+                    },
+                )
+                outcome_map[outcome_row["id"]] = outcome
+                self.counts["rps_course_outcomes"] += 1
+                for sub_order, sub_row in enumerate(subs_by_outcome[outcome_row["id"]], 1):
+                    sub, _ = SubOutcome.objects.update_or_create(
+                        rps=rps,
+                        code=sub_row["code"],
+                        defaults={
+                            "public_id": source_uuid(sub_row, "sub-outcome", sub_row["id"]),
+                            "course_outcome": outcome,
+                            "description": sub_row["description"],
+                            "bloom_level": sub_row.get("bloomLevel", "apply"),
+                            "target": decimal(sub_row.get("target"), "75"),
+                            "weight": decimal(sub_row.get("weightWithinCourseOutcome"), "100"),
+                            "order": sub_row.get("order", sub_order),
+                            "status": "active",
+                        },
+                    )
+                    sub_by_source[sub_row["id"]] = sub
+                    self.counts["rps_sub_outcomes"] += 1
+                    for indicator_order, indicator_row in enumerate(
+                        indicators_by_sub[sub_row["id"]], 1
+                    ):
+                        indicator, _ = Indicator.objects.update_or_create(
+                            rps=rps,
+                            code=indicator_row["id"],
+                            defaults={
+                                "public_id": source_uuid(
+                                    indicator_row, "indicator", indicator_row["id"]
+                                ),
+                                "sub_outcome": sub,
+                                "description": indicator_row["description"],
+                                "measurement": indicator_row.get(
+                                    "measurementUnit", "normalized-score-0-100"
+                                ),
+                                "target": decimal(indicator_row.get("target"), "75"),
+                                "observable": indicator_row.get("observable", True),
+                                "order": indicator_row.get("order", indicator_order),
+                                "status": "active",
+                            },
+                        )
+                        indicator_by_source[indicator_row["id"]] = indicator
+                        self.counts["rps_indicators"] += 1
+            for week_row in weeks_by_rps[source_id]:
+                week = int(week_row["week"])
+                WeeklyPlan.objects.update_or_create(
+                    rps=rps,
+                    week=week,
+                    defaults={
+                        "meeting_type": "midterm"
+                        if week == 8
+                        else "final"
+                        if week == 16
+                        else "regular",
+                        "outcomes": [
+                            sub_by_source[item].code
+                            for item in week_row.get("subOutcomeIds", [])
+                            if item in sub_by_source
+                        ],
+                        "indicators": [
+                            indicator_by_source[item].code
+                            for item in week_row.get("indicatorIds", [])
+                            if item in indicator_by_source
+                        ],
+                        "material": week_row.get("topic", f"Minggu {week}"),
+                        "methods": week_row.get("methods", []),
+                        "activities": week_row.get("activities", []),
+                        "contact_minutes": int(week_row.get("contactMinutes", 0)),
+                        "structured_minutes": int(week_row.get("structuredMinutes", 0)),
+                        "independent_minutes": int(week_row.get("independentMinutes", 0)),
+                        "planned_date": offering.starts_on + timedelta(days=(week - 1) * 7),
+                    },
+                )
+                self.counts["weekly_plans"] += 1
+            self.counts["rps_versions"] += 1
+
+        assessment = self.dataset.get("assessment", {})
+        all_indicator_codes = list(indicator_by_source.values())
+        all_sub_codes = list(sub_by_source.values())
+        rubric_map: dict[str, Any] = {}
+        for row in assessment.get("rubricLibrary", []):
+            code = row["id"].rsplit("-V", 1)[0]
+            rubric, _ = Rubric.objects.update_or_create(
+                code=code,
+                version=row.get("version", 1),
+                defaults={
+                    "public_id": source_uuid(row, "rubric", row["id"]),
+                    "title": row.get("name", row["id"]),
+                    "kind": "numeric"
+                    if row.get("type") == "numeric-marking-scheme"
+                    else row.get("type", "analytic"),
+                    "status": "draft",
+                },
+            )
+            for order, criterion_row in enumerate(row.get("criteria", []), 1):
+                Criterion.objects.update_or_create(
+                    rubric=rubric,
+                    code=criterion_row["code"],
+                    defaults={
+                        "title": criterion_row.get("name", criterion_row["code"]),
+                        "description": criterion_row.get("description")
+                        or f"Kriteria {criterion_row.get('name', criterion_row['code'])}",
+                        "weight": decimal(criterion_row.get("weight"), "100"),
+                        "indicator_codes": [item.code for item in all_indicator_codes],
+                        "sub_outcome_codes": [item.code for item in all_sub_codes],
+                        "order": order,
+                    },
+                )
+            for order, level_row in enumerate(row.get("levels", []), 1):
+                Level.objects.update_or_create(
+                    rubric=rubric,
+                    code=level_row["code"],
+                    defaults={
+                        "descriptor": level_row.get("name", level_row["code"]),
+                        "minimum": decimal(level_row.get("min")),
+                        "maximum": decimal(level_row.get("max"), "100"),
+                        "points": decimal(level_row.get("min")),
+                        "order": order,
+                    },
+                )
+            rubric.status = "published"
+            rubric.save(update_fields=["status", "updated_at"])
+            rubric_map[row["id"]] = rubric
+            self.counts["rubrics"] += 1
+
+        plans_by_rps: dict[str, list[Any]] = defaultdict(list)
+        for index, row in enumerate(assessment.get("assessmentPlans", []), 1):
+            rps = rps_by_source.get(row["rpsVersionId"])
+            if rps is None:
+                raise CommandError(
+                    f"Assessment plan {row['id']}: RPS {row['rpsVersionId']!r} tidak ada"
+                )
+            mappings = []
+            for mapping in row.get("outcomeMappings", []):
+                sub = sub_by_source[mapping["subOutcomeId"]]
+                mappings.append(
+                    {
+                        "sub_outcome_codes": [sub.code],
+                        "indicator_codes": list(sub.indicators.values_list("code", flat=True)),
+                        "allocation_weight": mapping.get("allocationWeight", 0),
+                    }
+                )
+            rubric = rubric_map.get(row.get("rubricId"))
+            instrument, _ = Instrument.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": source_uuid(row, "assessment", row["id"]),
+                    "offering_public_id": rps.offering.public_id,
+                    "rps_public_id": rps.public_id,
+                    "code": row["instrumentCode"],
+                    "version": row.get("version", 1),
+                    "title": row.get("name", row["instrumentCode"]),
+                    "kind": "summative"
+                    if row["instrumentCode"] in {"MIDTERM", "FINAL", "UTS", "UAS"}
+                    else "formative",
+                    "purpose": row.get("purpose")
+                    or f"Mengukur capaian melalui {row.get('name', row['instrumentCode'])}",
+                    "participant_scope": {
+                        "offering": str(rps.offering.public_id),
+                        "source_checksum": self.checksum,
+                    },
+                    "mode": row.get("mode", "onsite"),
+                    "weight": decimal(row["weight"]),
+                    "schedule": timezone.make_aware(
+                        datetime.combine(
+                            rps.offering.starts_on + timedelta(days=index % 100),
+                            datetime.min.time(),
+                        )
+                    ),
+                    "attempts": row.get("attemptLimit", 1),
+                    "assessor_id": str(rps.offering.coordinator_id),
+                    "mappings": mappings,
+                    "blueprint": row.get("blueprint")
+                    or {
+                        "outcome_distribution": mappings,
+                        "difficulty": "mixed",
+                        "form": "constructed-response",
+                        "coverage": mappings,
+                        "durationMinutes": 90,
+                    },
+                    "rubric_public_id": rubric.public_id if rubric else None,
+                    "evidence_required": row.get("evidenceRequired", True),
+                    "evidence_class": row.get("evidenceClass", "assessment"),
+                    "status": "draft",
+                    "created_by_actor_id": str(rps.offering.coordinator_id),
+                    "updated_by_actor_id": str(rps.offering.coordinator_id),
+                },
+            )
+            Item.objects.update_or_create(
+                instrument=instrument,
+                code="ITEM-01",
+                defaults={
+                    "prompt": f"Tunjukkan bukti capaian untuk {instrument.title}",
+                    "item_type": "constructed-response",
+                    "points": 100,
+                    "difficulty": "mixed",
+                    "indicator_codes": sorted(
+                        {code for item in mappings for code in item["indicator_codes"]}
+                    ),
+                    "sub_outcome_codes": sorted(
+                        {code for item in mappings for code in item["sub_outcome_codes"]}
+                    ),
+                    "answer_key": {"classification": "controlled", "source_id": row["id"]},
+                },
+            )
+            plans_by_rps[row["rpsVersionId"]].append(instrument)
+            self.counts["assessment_instruments"] += 1
+
+        for source_id, rps in rps_by_source.items():
+            instruments = plans_by_rps[source_id]
+            rps.content = {
+                **rps.content,
+                "assessment_snapshot": [
+                    {
+                        "code": item.code,
+                        "weight": str(item.weight),
+                        "mappings": item.mappings,
+                        "status": "published",
+                        "published_before_teaching": True,
+                        "source_status": "published-demo",
+                    }
+                    for item in sorted(instruments, key=lambda value: value.code)
+                ],
+            }
+            rps.save(update_fields=["content", "updated_at"])
 
     def import_edges(self, curriculum) -> None:
         groups: dict[tuple[str, str, str], list[tuple[str, Decimal]]] = defaultdict(list)

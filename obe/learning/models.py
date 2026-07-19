@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -5,10 +6,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from obe.shared.models import VersionedModel
+from obe.shared.models import TimeStampedModel, VersionedModel
 
 
 class CourseOffering(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     course_public_id = models.UUIDField(db_index=True)
     curriculum_version_public_id = models.UUIDField(null=True, blank=True, db_index=True)
     academic_year = models.CharField(max_length=12)
@@ -48,6 +50,37 @@ class CourseOffering(VersionedModel):
         ]
 
 
+class OfferingRoster(VersionedModel):
+    class IRSStatus(models.TextChoices):
+        APPROVED = "approved", "Approved"
+        PENDING = "pending", "Pending"
+        MISSING = "missing", "Missing"
+        REJECTED = "rejected", "Rejected"
+
+    offering = models.ForeignKey(
+        CourseOffering, on_delete=models.PROTECT, related_name="roster_entries"
+    )
+    student_id = models.CharField(max_length=64)
+    enrollment_plan_public_id = models.UUIDField(null=True, blank=True)
+    irs_status = models.CharField(
+        max_length=16, choices=IRSStatus.choices, default=IRSStatus.MISSING
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=[("active", "Active"), ("withdrawn", "Withdrawn")],
+        default="active",
+    )
+    source_version = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["offering", "student_id", "version"],
+                name="offering_roster_student_version_unique",
+            )
+        ]
+
+
 class RPSVersion(VersionedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -59,6 +92,7 @@ class RPSVersion(VersionedModel):
     offering = models.ForeignKey(
         CourseOffering, on_delete=models.PROTECT, related_name="rps_versions"
     )
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT)
     content = models.JSONField(default=dict)
     total_assessment_weight = models.DecimalField(max_digits=6, decimal_places=3, default=0)
@@ -339,6 +373,8 @@ class Attendance(models.Model):
     )
     occurred_at = models.DateTimeField()
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    note = models.TextField(blank=True)
+    source_version = models.JSONField(default=dict, blank=True)
 
     class Meta:
         constraints = [
@@ -346,3 +382,78 @@ class Attendance(models.Model):
                 fields=["offering", "student_id", "activity_id"], name="attendance_once"
             )
         ]
+
+
+class ExamEligibilityOverride(VersionedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        REVOKED = "revoked", "Revoked"
+
+    roster = models.ForeignKey(
+        OfferingRoster, on_delete=models.PROTECT, related_name="exam_overrides"
+    )
+    reason_code = models.CharField(max_length=80)
+    reason = models.TextField()
+    evidence_ids = models.JSONField(default=list)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="exam_overrides_requested",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="exam_overrides_approved",
+    )
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if not self.reason_code.strip() or not self.reason.strip() or not self.evidence_ids:
+            raise ValidationError("Override eligibility memerlukan reason code, alasan, dan bukti")
+        if self.status == self.Status.APPROVED:
+            if not self.approved_by_id or not self.decided_at:
+                raise ValidationError("Override approved memerlukan approver dan waktu keputusan")
+            if self.approved_by_id == self.requested_by_id:
+                raise ValidationError("Pemohon tidak boleh menyetujui override sendiri")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["roster", "reason_code", "version"],
+                name="exam_override_roster_reason_version_unique",
+            )
+        ]
+
+
+class ExamEligibilitySnapshot(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    roster = models.ForeignKey(
+        OfferingRoster, on_delete=models.PROTECT, related_name="eligibility_snapshots"
+    )
+    eligible = models.BooleanField()
+    attendance_percent = models.DecimalField(max_digits=6, decimal_places=2)
+    attended = models.PositiveIntegerField()
+    denominator = models.PositiveIntegerField()
+    counted_activity_ids = models.JSONField(default=list)
+    reason_codes = models.JSONField(default=list)
+    rule_code = models.CharField(max_length=80, default="ATTENDANCE-UAS-75")
+    rule_version = models.PositiveIntegerField(default=1)
+    override = models.ForeignKey(
+        ExamEligibilityOverride,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="eligibility_snapshots",
+    )
+    source_versions = models.JSONField(default=dict)
+    generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    class Meta:
+        indexes = [models.Index(fields=["roster", "created_at"])]

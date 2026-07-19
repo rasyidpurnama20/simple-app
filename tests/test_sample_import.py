@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -30,7 +31,7 @@ def test_import_rejects_truncated_json_before_writing(tmp_path):
 def test_import_skips_non_completed_enrollments_and_reports_reconciliation(
     settings, monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("OBE_DEMO_PASSWORD", "test-only-password-123")
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", f"runtime-{uuid.uuid4().hex}")
     dataset = json.loads(
         (settings.BASE_DIR / "fixtures/sample-data-2020-2026-obe-spec-v5.compact.json").read_text()
     )
@@ -68,7 +69,7 @@ def test_import_skips_non_completed_enrollments_and_reports_reconciliation(
 def test_import_rejects_completed_enrollment_without_grade_before_writing(
     settings, monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("OBE_DEMO_PASSWORD", "test-only-password-123")
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", f"runtime-{uuid.uuid4().hex}")
     dataset = json.loads(
         (settings.BASE_DIR / "fixtures/sample-data-2020-2026-obe-spec-v5.compact.json").read_text()
     )
@@ -89,7 +90,7 @@ def test_import_rejects_completed_enrollment_without_grade_before_writing(
 
 @pytest.mark.django_db
 def test_import_rejects_orphan_master_reference_before_writing(settings, monkeypatch, tmp_path):
-    monkeypatch.setenv("OBE_DEMO_PASSWORD", "test-only-password-123")
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", f"runtime-{uuid.uuid4().hex}")
     dataset = json.loads(
         (settings.BASE_DIR / "fixtures/sample-data-2020-2026-obe-spec-v5.compact.json").read_text()
     )
@@ -108,7 +109,7 @@ def test_full_sample_imports_all_supported_records_idempotently(tmp_path, monkey
     source = os.environ.get("OBE_FULL_SAMPLE_PATH")
     if not source:
         pytest.skip("Set OBE_FULL_SAMPLE_PATH untuk acceptance file v5 lengkap")
-    monkeypatch.setenv("OBE_DEMO_PASSWORD", "test-only-password-123")
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", f"runtime-{uuid.uuid4().hex}")
     report = tmp_path / "full-reconciliation.json"
     call_command("import_obe_sample", path=Path(source), report=report)
     first = json.loads(report.read_text())
@@ -117,12 +118,16 @@ def test_full_sample_imports_all_supported_records_idempotently(tmp_path, monkey
     dataset = json.loads(Path(source).read_text())
 
     from obe.assessment.models import AssessmentInstrument, Rubric
-    from obe.learning.models import RPSVersion, WeeklyPlan
+    from obe.learning.models import CourseOffering, RPSVersion, WeeklyPlan
     from obe.learning.services import validate_rps
 
-    rps = RPSVersion.objects.get(public_id="17237222-a7e1-5fa0-a42d-575473157ba6")
+    rps = RPSVersion.objects.get(source_id="RPS-MIK1624101-2024-V1")
     assert WeeklyPlan.objects.filter(rps=rps).count() == 16
     assert AssessmentInstrument.objects.filter(rps_public_id=rps.public_id).count() == 6
+    assert CourseOffering.objects.count() == len(dataset["courseOfferings"])
+    assert RPSVersion.objects.count() == len(dataset["learning"]["rpsVersions"])
+    assert WeeklyPlan.objects.count() == len(dataset["learning"]["weeklyPlans"])
+    assert AssessmentInstrument.objects.count() == len(dataset["assessment"]["assessmentPlans"])
     assert Rubric.objects.count() == 2
     assert validate_rps(rps)["valid"]
     assert StudentProfile.objects.count() == 1597
@@ -179,5 +184,9 @@ def test_full_sample_imports_all_supported_records_idempotently(tmp_path, monkey
     assert first["imported"]["lecturers"] == 43
     assert first["imported"]["scoped_assignments"] == 36
     assert first["imported"]["identifier_aliases"] == 3851
+    assert first["imported"]["course_offerings"] == 3850
+    assert first["imported"]["rps_versions"] == 77
+    assert first["imported"]["weekly_plans"] == 1232
+    assert first["imported"]["assessment_instruments"] == 459
     assert first["skipped"]["academic_results"] == {"planned": 16404, "upcoming": 12118}
     assert second == first

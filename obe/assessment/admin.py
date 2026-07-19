@@ -4,12 +4,18 @@ from obe.assessment.models import (
     AssessmentInstrument,
     AssessmentItem,
     AttainmentSnapshot,
+    CompetencyScale,
     CriterionScore,
+    ExamEquivalenceReview,
+    ParallelExamPolicy,
     PerformanceLevel,
+    QuestionSetVersion,
     Rubric,
     RubricCriterion,
     Score,
+    ScoreRevision,
     Submission,
+    SubmissionGroup,
 )
 
 admin.site.register(
@@ -20,7 +26,13 @@ admin.site.register(
         RubricCriterion,
         PerformanceLevel,
         Submission,
+        SubmissionGroup,
         Score,
+        ScoreRevision,
+        CompetencyScale,
+        ParallelExamPolicy,
+        QuestionSetVersion,
+        ExamEquivalenceReview,
         CriterionScore,
         AttainmentSnapshot,
     ]
