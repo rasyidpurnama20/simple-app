@@ -129,6 +129,8 @@ def validate_runtime_configuration(
         _require_secret("OBE_SECRET_KEY_FALLBACKS", str(fallback), 50)
     if not 0 <= int(database.get("CONN_MAX_AGE", -1)) <= 600:
         raise ImproperlyConfigured("OBE_DB_CONN_MAX_AGE harus berada pada rentang 0–600 detik")
+    if not 1 <= int(namespace.get("OBE_DB_CONNECTION_LIMIT", 0)) <= 1_000:
+        raise ImproperlyConfigured("OBE_DB_CONNECTION_LIMIT harus berada pada rentang 1–1000")
     evidence_root = Path(namespace.get("EVIDENCE_ROOT", ""))
     if not evidence_root.is_absolute():
         raise ImproperlyConfigured("EVIDENCE_ROOT wajib berupa path absolut")
@@ -144,6 +146,33 @@ def validate_runtime_configuration(
         broker_url, schemes={"redis", "rediss", "amqp", "amqps"}
     ):
         raise ImproperlyConfigured("CELERY_BROKER_URL tidak valid untuk lingkungan terkelola")
+    if not isolated_memory_broker and urlparse(broker_url).scheme not in {"amqp", "amqps"}:
+        raise ImproperlyConfigured("Lingkungan terkelola wajib menggunakan RabbitMQ")
+    cache_url = str(namespace.get("CACHE_URL", ""))
+    result_backend = str(namespace.get("CELERY_RESULT_BACKEND", ""))
+    if not _valid_url(cache_url, schemes={"redis", "rediss"}):
+        raise ImproperlyConfigured("CACHE_URL terkelola wajib menggunakan Valkey/Redis protocol")
+    if not _valid_url(result_backend, schemes={"redis", "rediss"}):
+        raise ImproperlyConfigured("CELERY_RESULT_BACKEND wajib menggunakan short-lived Valkey")
+    queue_names = {queue.name for queue in namespace.get("CELERY_TASK_QUEUES", ())}
+    required_queues = {
+        "interactive",
+        "academic-critical",
+        "ai",
+        "reports",
+        "imports",
+        "notifications",
+        "sync",
+        "batch",
+        "maintenance",
+        "dead-letter",
+    }
+    if queue_names != required_queues:
+        raise ImproperlyConfigured("Definisi antrean Celery tidak lengkap")
+    if namespace.get("OBE_TELEMETRY_ENABLED") and not _valid_url(
+        str(namespace.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")), schemes={"http", "https"}
+    ):
+        raise ImproperlyConfigured("Endpoint OTLP tidak valid")
 
     required_rotation = ["OBE_SECRET_KEY", "DATABASE_PASSWORD"]
     if bool(namespace.get("OBE_AI_ENABLED")):

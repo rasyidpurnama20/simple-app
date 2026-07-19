@@ -7,6 +7,7 @@ import pytest
 from django.core.exceptions import ImproperlyConfigured
 
 from config.settings.runtime import secret_value, validate_runtime_configuration
+from obe.shared.queueing import build_task_queues
 from obe.shared.redaction import (
     REDACTED,
     RedactingFormatter,
@@ -34,7 +35,13 @@ def managed_configuration(profile: str = "production") -> tuple[dict, dict[str, 
             }
         },
         "SECRET_KEY": "s" * 64,
-        "CELERY_BROKER_URL": "rediss://broker.example.invalid/0",
+        "CELERY_BROKER_URL": "amqps://broker.example.invalid/obe",
+        "CELERY_RESULT_BACKEND": "rediss://cache.example.invalid/1",
+        "CACHE_URL": "rediss://cache.example.invalid/0",
+        "CELERY_TASK_QUEUES": build_task_queues(),
+        "OBE_DB_CONNECTION_LIMIT": 20,
+        "OBE_TELEMETRY_ENABLED": True,
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "https://telemetry.example.invalid",
         "OBE_AI_ENABLED": False,
         "LITELLM_API_KEY": "",
         "LITELLM_URL": "https://ai.example.invalid",
@@ -86,7 +93,7 @@ def test_cross_configuration_invalid_url_and_security_mode_are_rejected():
     with pytest.raises(ImproperlyConfigured, match="CELERY_BROKER_URL"):
         validate_runtime_configuration(namespace, "production", environ=environ, now=NOW)
 
-    namespace["CELERY_BROKER_URL"] = "rediss://broker.example.invalid/0"
+    namespace["CELERY_BROKER_URL"] = "amqps://broker.example.invalid/obe"
     namespace["DEBUG"] = True
     with pytest.raises(ImproperlyConfigured, match="Mode keamanan"):
         validate_runtime_configuration(namespace, "production", environ=environ, now=NOW)

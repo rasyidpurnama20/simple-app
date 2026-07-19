@@ -1,33 +1,105 @@
 name: obe-observability
+
+x-runtime: &runtime
+  restart: unless-stopped
+  networks: [observability]
+  deploy:
+    resources:
+      limits: {cpus: "1.0", memory: 768M}
+
 services:
   prometheus:
-    image: prom/prometheus:v3.4.1
+    <<: *runtime
+    image: "${PROMETHEUS_IMAGE:?Set immutable Prometheus digest}"
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
-    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro", "prometheus:/prometheus"]
-    networks: [observability]
-    restart: unless-stopped
+    configs:
+      - {source: prometheus, target: /etc/prometheus/prometheus.yml}
+      - {source: alert_rules, target: /etc/prometheus/rules/obe-alerts.yml}
+    volumes: ["prometheus:/prometheus"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  alertmanager:
+    <<: *runtime
+    image: "${ALERTMANAGER_IMAGE:?Set immutable Alertmanager digest}"
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    configs: [{source: alertmanager, target: /etc/alertmanager/alertmanager.yml}]
+    volumes: ["alertmanager:/alertmanager"]
+
   grafana:
-    image: grafana/grafana:12.0.1
-    environment: {GF_SERVER_ROOT_URL: "https://localhost/observability", GF_AUTH_ANONYMOUS_ENABLED: "false"}
+    <<: *runtime
+    image: "${GRAFANA_IMAGE:?Set immutable Grafana digest}"
+    environment:
+      GF_SERVER_ROOT_URL: "https://observability.example.invalid"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    configs:
+      - {source: grafana_datasources, target: /etc/grafana/provisioning/datasources/obe.yml}
+      - {source: grafana_dashboards, target: /etc/grafana/provisioning/dashboards/obe.yml}
+      - {source: grafana_overview, target: /var/lib/grafana/dashboards/obe-overview.json}
     volumes: ["grafana:/var/lib/grafana"]
-    networks: [observability]
-    restart: unless-stopped
+
   loki:
-    image: grafana/loki:3.5.1
-    command: ["-config.file=/etc/loki/local-config.yaml"]
+    <<: *runtime
+    image: "${LOKI_IMAGE:?Set immutable Loki digest}"
+    command: ["-config.file=/etc/loki/config.yml"]
+    configs: [{source: loki, target: /etc/loki/config.yml}]
     volumes: ["loki:/loki"]
-    networks: [observability]
-    restart: unless-stopped
+
+  tempo:
+    <<: *runtime
+    image: "${TEMPO_IMAGE:?Set immutable Tempo digest}"
+    command: ["-config.file=/etc/tempo/config.yml"]
+    configs: [{source: tempo, target: /etc/tempo/config.yml}]
+    volumes: ["tempo:/var/tempo"]
+
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.128.0
+    <<: *runtime
+    image: "${OTEL_COLLECTOR_IMAGE:?Set immutable OTel Collector digest}"
     command: ["--config=/etc/otel/config.yml"]
-    volumes: ["./otel.yml:/etc/otel/config.yml:ro"]
-    networks: [observability]
-    restart: unless-stopped
+    configs: [{source: otel, target: /etc/otel/config.yml}]
+    networks: [observability, telemetry]
+    depends_on: [loki, tempo]
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "components"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  valkey-exporter:
+    <<: *runtime
+    image: "${VALKEY_EXPORTER_IMAGE:?Set immutable Valkey exporter digest}"
+    environment: {REDIS_ADDR: "redis://valkey:6379"}
+    networks: [observability, data]
+
+  node-exporter:
+    <<: *runtime
+    image: "${NODE_EXPORTER_IMAGE:?Set immutable node exporter digest}"
+    command: ["--path.rootfs=/host", "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"]
+    volumes: ["/:/host:ro,rslave"]
+
+configs:
+  prometheus: {file: ./prometheus.yml}
+  alert_rules: {file: ./alerts.yml}
+  alertmanager: {file: ./alertmanager.yml}
+  otel: {file: ./otel.yml}
+  loki: {file: ./loki.yml}
+  tempo: {file: ./tempo.yml}
+  grafana_datasources: {file: ./grafana/provisioning/datasources.yml}
+  grafana_dashboards: {file: ./grafana/provisioning/dashboards.yml}
+  grafana_overview: {file: ./grafana/dashboards/obe-overview.json}
+
 networks:
   observability: {internal: true}
+  telemetry: {name: obe-telemetry, external: true}
+  data: {name: obe-data, external: true}
+
 volumes:
   prometheus:
+  alertmanager:
   grafana:
   loki:
-
+  tempo:
