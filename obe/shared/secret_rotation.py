@@ -10,6 +10,7 @@ SECRET_FILE_NAMES = {
     "database-password": "database_password",
     "django-secret-key": "obe_secret_key",
     "litellm-api-key": "litellm_api_key",
+    "rabbitmq-password": "rabbitmq_password",
     "exam-signing-key": "obe_exam_signing_key",
     "exam-sync-token": "obe_exam_sync_token",
 }

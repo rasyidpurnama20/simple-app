@@ -1,7 +1,7 @@
 name: obe-exam-edge
 services:
   edge-db:
-    image: postgres:17.5-alpine
+    image: "${POSTGRES_IMAGE:?Set postgres image@sha256 digest}"
     environment:
       POSTGRES_DB: exam_edge
       POSTGRES_USER: exam_edge
@@ -9,7 +9,15 @@ services:
     secrets: [edge_db_password]
     volumes: ["edge-db:/var/lib/postgresql/data"]
     networks: [edge-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exam_edge -d exam_edge"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 2G}
   edge-web:
     image: "${OBE_IMAGE:?Set OBE_IMAGE to an immutable image digest}"
     environment:
@@ -28,10 +36,19 @@ services:
     secrets: [edge_database_url, edge_secret_key, edge_signing_key, edge_sync_token]
     volumes: ["edge-responses:/app/var/exam"]
     networks: [edge-internal, exam-vlan]
-    depends_on: [edge-db]
+    depends_on:
+      edge-db: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz/', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
     read_only: true
     tmpfs: [/tmp]
     restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 2G}
   sync-agent:
     image: "${OBE_IMAGE:?Set OBE_IMAGE to an immutable image digest}"
     command: ["python", "manage.py", "edge_sync"]
@@ -51,6 +68,11 @@ services:
     secrets: [edge_database_url, edge_secret_key, edge_signing_key, edge_sync_token]
     networks: [edge-internal]
     restart: "no"
+    depends_on:
+      edge-db: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 1G}
 secrets:
   edge_db_password: {file: ./secrets/edge_db_password}
   edge_database_url: {file: ./secrets/edge_database_url}

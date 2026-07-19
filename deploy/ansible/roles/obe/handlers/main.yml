@@ -1,0 +1,14 @@
+- name: Reload systemd
+  ansible.builtin.systemd: {daemon_reload: true}
+- name: Restart OBE deployment
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - -f
+      - "{{ obe_release_root }}/{{ obe_compose_file }}"
+      - up
+      - -d
+      - --wait
+  changed_when: true
+  when: obe_deploy_enabled | bool

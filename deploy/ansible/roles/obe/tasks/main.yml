@@ -1,27 +1,128 @@
 - name: Create OBE system group
-  ansible.builtin.group: {name: obe, system: true}
+  ansible.builtin.group: {name: "{{ obe_group }}", gid: "{{ obe_gid }}", system: true}
 - name: Create OBE system user
-  ansible.builtin.user: {name: obe, group: obe, system: true, shell: /usr/sbin/nologin}
-- name: Create private data directories
+  ansible.builtin.user:
+    name: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    uid: "{{ obe_uid }}"
+    system: true
+    shell: /usr/sbin/nologin
+- name: Create separated private component directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: obe
-    group: obe
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
     mode: "0750"
-  loop: [/srv/obe, /srv/obe/evidence, /srv/obe/backups, /srv/obe/config]
-- name: Install Docker engine packages
+  loop:
+    - "{{ obe_data_root }}"
+    - "{{ obe_data_root }}/database"
+    - "{{ obe_data_root }}/evidence"
+    - "{{ obe_data_root }}/uploads"
+    - "{{ obe_data_root }}/queue"
+    - "{{ obe_data_root }}/cache"
+    - "{{ obe_data_root }}/observability"
+    - "{{ obe_data_root }}/config"
+    - "{{ obe_data_root }}/backups"
+    - "{{ obe_data_root }}/tls"
+    - "{{ obe_release_root }}"
+- name: Install deployment, firewall, backup, and monitoring packages
   ansible.builtin.package:
-    name: [docker.io, docker-compose-plugin]
+    name: [docker.io, docker-compose-plugin, ufw, restic, prometheus-node-exporter]
     state: present
 - name: Enable Docker
   ansible.builtin.service: {name: docker, state: started, enabled: true}
-- name: Install firewall baseline
-  ansible.builtin.package: {name: ufw, state: present}
+- name: Enable node exporter monitoring
+  ansible.builtin.service: {name: prometheus-node-exporter, state: started, enabled: true}
 - name: Deny inbound by default
   community.general.ufw: {direction: incoming, policy: deny}
+- name: Allow managed SSH
+  community.general.ufw: {rule: limit, port: "{{ obe_ssh_port }}", proto: tcp}
 - name: Allow HTTPS
   community.general.ufw: {rule: allow, port: "443", proto: tcp}
 - name: Enable firewall
   community.general.ufw: {state: enabled}
-
+- name: Install TLS certificate
+  ansible.builtin.copy:
+    src: "{{ obe_tls_certificate_source }}"
+    dest: "{{ obe_data_root }}/tls/fullchain.pem"
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    mode: "0640"
+  when: obe_tls_certificate_source | length > 0
+  notify: Restart OBE deployment
+- name: Install TLS private key
+  ansible.builtin.copy:
+    src: "{{ obe_tls_private_key_source }}"
+    dest: "{{ obe_data_root }}/tls/privkey.pem"
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    mode: "0600"
+  no_log: true
+  when: obe_tls_private_key_source | length > 0
+  notify: Restart OBE deployment
+- name: Install encrypted off-host backup environment
+  ansible.builtin.copy:
+    src: "{{ obe_backup_environment_source }}"
+    dest: /etc/obe-backup.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: obe_backup_environment_source | length > 0
+- name: Install backup service
+  ansible.builtin.template:
+    src: obe-backup.service.j2
+    dest: /etc/systemd/system/obe-backup.service
+    mode: "0644"
+  notify: Reload systemd
+- name: Install backup command
+  ansible.builtin.template:
+    src: obe-backup.sh.j2
+    dest: /usr/local/sbin/obe-backup
+    mode: "0750"
+- name: Install backup timer
+  ansible.builtin.template:
+    src: obe-backup.timer.j2
+    dest: /etc/systemd/system/obe-backup.timer
+    mode: "0644"
+  notify: Reload systemd
+- name: Enable backup timer
+  ansible.builtin.systemd:
+    name: obe-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+- name: Copy immutable release bundle
+  ansible.builtin.copy:
+    src: "{{ obe_release_source }}/"
+    dest: "{{ obe_release_root }}/"
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    mode: preserve
+  when: obe_release_source | length > 0
+- name: Install non-secret deployment environment
+  ansible.builtin.copy:
+    src: "{{ obe_deployment_environment_source }}"
+    dest: "{{ obe_release_root }}/.env"
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    mode: "0640"
+  when: obe_deployment_environment_source | length > 0
+- name: Install runtime environment
+  ansible.builtin.copy:
+    src: "{{ obe_runtime_environment_source }}"
+    dest: "{{ obe_release_root }}/deploy/env/production.env"
+    owner: "{{ obe_user }}"
+    group: "{{ obe_group }}"
+    mode: "0640"
+  when: obe_runtime_environment_source | length > 0
+- name: Validate and deploy OBE compose project idempotently
+  ansible.builtin.command:
+    argv: [python3, -m, scripts.obe_ops, deploy, --compose-file, "{{ obe_compose_file }}"]
+    chdir: "{{ obe_release_root }}"
+  register: obe_deploy_result
+  changed_when: "'Started' in obe_deploy_result.stdout or 'Recreated' in obe_deploy_result.stdout"
+  environment:
+    OBE_DATA_ROOT: "{{ obe_data_root }}"
+  when: obe_deploy_enabled | bool

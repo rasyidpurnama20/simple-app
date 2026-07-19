@@ -1,0 +1,170 @@
+name: obe-server
+
+x-app: &app
+  image: "${OBE_IMAGE:?Set immutable image@sha256 digest}"
+  env_file: "${OBE_ENV_FILE:-../env/production.env}"
+  secrets: [database_url, obe_secret_key, litellm_api_key]
+  volumes:
+    - "${OBE_DATA_ROOT:-/srv/obe}/evidence:/app/var/evidence"
+    - "${OBE_DATA_ROOT:-/srv/obe}/uploads:/app/var/uploads"
+    - "${OBE_DATA_ROOT:-/srv/obe}/config:/run/obe-config:ro"
+  networks: [application, data]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits: {cpus: "2.0", memory: 2G}
+      reservations: {memory: 512M}
+
+services:
+  database:
+    image: "${POSTGRES_IMAGE:?Set postgres image@sha256 digest}"
+    environment:
+      POSTGRES_DB: obe
+      POSTGRES_USER: obe
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+    secrets: [database_password]
+    volumes:
+      - "${OBE_DATA_ROOT:-/srv/obe}/database:/var/lib/postgresql/data"
+      - "${OBE_DATA_ROOT:-/srv/obe}/backups:/backups:ro"
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obe -d obe"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 2G}
+
+  valkey:
+    image: "${VALKEY_IMAGE:?Set valkey image@sha256 digest}"
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory", "512mb"]
+    volumes: ["${OBE_DATA_ROOT:-/srv/obe}/cache:/data"]
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 768M}
+
+  rabbitmq:
+    image: "${RABBITMQ_IMAGE:?Set rabbitmq image@sha256 digest}"
+    environment:
+      RABBITMQ_DEFAULT_USER: obe
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/rabbitmq_password
+    secrets: [rabbitmq_password]
+    volumes: ["${OBE_DATA_ROOT:-/srv/obe}/queue:/var/lib/rabbitmq"]
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "1.5", memory: 1G}
+
+  clamav:
+    image: "${CLAMAV_IMAGE:?Set clamav image@sha256 digest}"
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "1.5", memory: 2G}
+
+  migrate:
+    <<: *app
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      database: {condition: service_healthy}
+    restart: "no"
+
+  web:
+    <<: *app
+    environment:
+      OBE_MAINTENANCE_MODE: "${OBE_MAINTENANCE_MODE:-0}"
+      OBE_MAINTENANCE_FILE: /run/obe-config/maintenance
+      CLAMAV_HOST: clamav
+    depends_on:
+      database: {condition: service_healthy}
+      valkey: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      clamav: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz/', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "interactive,academic-critical,batch,maintenance"]
+    depends_on:
+      database: {condition: service_healthy}
+      valkey: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$${HOSTNAME} --timeout 5"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config", "beat", "-l", "INFO", "--pidfile=/tmp/celerybeat.pid"]
+    depends_on:
+      database: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+
+  proxy:
+    image: "${NGINX_IMAGE:?Set nginx image@sha256 digest}"
+    ports: ["443:443"]
+    configs:
+      - {source: nginx_config, target: /etc/nginx/nginx.conf}
+    volumes:
+      - "${OBE_DATA_ROOT:-/srv/obe}/tls:/etc/nginx/tls:ro"
+    networks: [public, application]
+    depends_on:
+      web: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://web:8000/healthz/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 256M}
+
+secrets:
+  database_password: {file: "${OBE_SECRET_DIR:?Set secret directory}/database_password"}
+  database_url: {file: "${OBE_SECRET_DIR:?Set secret directory}/database_url"}
+  obe_secret_key: {file: "${OBE_SECRET_DIR:?Set secret directory}/obe_secret_key"}
+  litellm_api_key: {file: "${OBE_SECRET_DIR:?Set secret directory}/litellm_api_key"}
+  rabbitmq_password: {file: "${OBE_SECRET_DIR:?Set secret directory}/rabbitmq_password"}
+
+configs:
+  nginx_config: {file: ./nginx.conf}
+
+networks:
+  public: {}
+  application: {internal: true}
+  data: {internal: true}

@@ -25,20 +25,23 @@ def managed_configuration(profile: str = "production") -> tuple[dict, dict[str, 
         "OBE_ENV": profile,
         "DEBUG": False,
         "SECURE_SSL_REDIRECT": True,
-        "ALLOWED_HOSTS": [f"{profile}.obe.example.ac.id"],
+        "ALLOWED_HOSTS": [f"{profile}.example.invalid"],
         "DATABASES": {
             "default": {
                 "ENGINE": "django.db.backends.postgresql",
                 "PASSWORD": "strong-database-password",
+                "CONN_MAX_AGE": 60,
             }
         },
         "SECRET_KEY": "s" * 64,
-        "CELERY_BROKER_URL": "rediss://broker.example.ac.id/0",
+        "CELERY_BROKER_URL": "rediss://broker.example.invalid/0",
         "OBE_AI_ENABLED": False,
         "LITELLM_API_KEY": "",
-        "LITELLM_URL": "https://ai.example.ac.id",
+        "LITELLM_URL": "https://ai.example.invalid",
         "OBE_EXAM_SIGNING_KEY": "e" * 48,
         "OBE_EXAM_SYNC_TOKEN": "t" * 48,
+        "EVIDENCE_ROOT": "/srv/obe/evidence",
+        "EVIDENCE_ANTIVIRUS_REQUIRED": False,
     }
     environ = {
         "OBE_ENV": profile,
@@ -83,7 +86,7 @@ def test_cross_configuration_invalid_url_and_security_mode_are_rejected():
     with pytest.raises(ImproperlyConfigured, match="CELERY_BROKER_URL"):
         validate_runtime_configuration(namespace, "production", environ=environ, now=NOW)
 
-    namespace["CELERY_BROKER_URL"] = "rediss://broker.example.ac.id/0"
+    namespace["CELERY_BROKER_URL"] = "rediss://broker.example.invalid/0"
     namespace["DEBUG"] = True
     with pytest.raises(ImproperlyConfigured, match="Mode keamanan"):
         validate_runtime_configuration(namespace, "production", environ=environ, now=NOW)
@@ -168,3 +171,6 @@ def test_sops_and_environment_templates_contain_no_plaintext_secret_values():
         assert "LITELLM_API_KEY=" not in content
         assert "OBE_EXAM_SIGNING_KEY=" not in content
         assert "OBE_EXAM_SYNC_TOKEN=" not in content
+        assert ".example.ac.id" not in content
+        assert "/run/secrets/" not in content
+        assert "2026-" not in content

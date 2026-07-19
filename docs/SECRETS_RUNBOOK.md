@@ -19,6 +19,7 @@
 | password database | `DATABASE_URL_FILE` | 90 hari | role/password DB lama dan baru |
 | session/signing Django | `OBE_SECRET_KEY_FILE` | 90 hari | `OBE_SECRET_KEY_FALLBACKS_FILE` |
 | API key LiteLLM | `LITELLM_API_KEY_FILE` | 60 hari | dua key aktif di gateway |
+| password RabbitMQ | runtime secret `rabbitmq_password` | 90 hari | user/password broker lama dan baru |
 | signing key Exam Edge | `OBE_EXAM_SIGNING_KEY_FILE` | 90 hari | `OBE_EXAM_SIGNING_KEY_FALLBACKS_FILE` |
 | credential sync Exam Edge | `OBE_EXAM_SYNC_TOKEN_FILE` | 30 hari | token lama dan baru pada endpoint sync |
 

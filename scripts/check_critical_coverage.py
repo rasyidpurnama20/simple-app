@@ -6,6 +6,7 @@ from pathlib import Path
 CRITICAL_DOMAINS = {
     "assessment",
     "curriculum",
+    "evidence",
     "identity",
     "learning",
     "secure_exam",

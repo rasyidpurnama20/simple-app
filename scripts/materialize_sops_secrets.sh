@@ -11,7 +11,7 @@ profile="$1"
 encrypted_file="$2"
 output_directory="$3"
 case "$profile" in
-  staging|production) mappings=(database_url:database_url django_secret_key:obe_secret_key litellm_api_key:litellm_api_key) ;;
+  staging|production) mappings=(database_url:database_url database_password:database_password django_secret_key:obe_secret_key litellm_api_key:litellm_api_key rabbitmq_password:rabbitmq_password) ;;
   exam-edge) mappings=(database_url:edge_database_url django_secret_key:edge_secret_key exam_signing_key:edge_signing_key exam_sync_token:edge_sync_token) ;;
   *) echo "Profil tidak dikenal." >&2; exit 2 ;;
 esac

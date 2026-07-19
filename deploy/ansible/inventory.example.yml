@@ -2,8 +2,13 @@ all:
   children:
     obe_server:
       hosts:
-        staging.example.internal:
+        staging.example.invalid:
+          obe_deploy_enabled: false
+          obe_release_source: ""
+          obe_compose_file: deploy/server/compose.yml
     exam_edge:
       hosts:
-        exam-edge.example.internal:
-
+        exam-edge.example.invalid:
+          obe_deploy_enabled: false
+          obe_release_source: ""
+          obe_compose_file: deploy/exam-edge/compose.yml

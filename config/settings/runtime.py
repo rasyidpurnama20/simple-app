@@ -127,6 +127,16 @@ def validate_runtime_configuration(
     _require_secret("OBE_SECRET_KEY", str(namespace.get("SECRET_KEY", "")), 50)
     for fallback in namespace.get("SECRET_KEY_FALLBACKS", []):
         _require_secret("OBE_SECRET_KEY_FALLBACKS", str(fallback), 50)
+    if not 0 <= int(database.get("CONN_MAX_AGE", -1)) <= 600:
+        raise ImproperlyConfigured("OBE_DB_CONN_MAX_AGE harus berada pada rentang 0–600 detik")
+    evidence_root = Path(namespace.get("EVIDENCE_ROOT", ""))
+    if not evidence_root.is_absolute():
+        raise ImproperlyConfigured("EVIDENCE_ROOT wajib berupa path absolut")
+    if namespace.get("EVIDENCE_ANTIVIRUS_REQUIRED"):
+        clamav_host = str(namespace.get("CLAMAV_HOST", ""))
+        clamav_port = int(namespace.get("CLAMAV_PORT", 0))
+        if not clamav_host or not 1 <= clamav_port <= 65535:
+            raise ImproperlyConfigured("Endpoint ClamAV tidak valid")
 
     broker_url = str(namespace.get("CELERY_BROKER_URL", ""))
     isolated_memory_broker = expected_profile == "exam-edge" and broker_url == "memory://"

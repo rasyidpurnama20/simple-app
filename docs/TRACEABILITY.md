@@ -8,9 +8,9 @@
 | 02 | Struktur dan batas modul | `obe/*`, `tests/test_architecture.py` | Baseline |
 | 03 | CI dan quality gate | `.github/workflows/ci.yml`, PR template | Baseline |
 | 04 | Environment dan secret | lima profil settings, validasi fail-fast, SOPS, redaksi, rotasi/revokasi, `PR04_ACCEPTANCE.md` | Implemented |
-| 05 | Deployment reproducible | `Dockerfile`, Compose, Ansible | Baseline |
-| 06 | PostgreSQL source of truth | models, constraints, initial migrations | Baseline |
-| 07 | Evidence immutable | `shared.FileManifest`, `evidence` service | Baseline |
+| 05 | Deployment reproducible | digest preflight, server/edge Compose, Ansible, idempotent ops, `PR05_PR07_ACCEPTANCE.md` | Implemented |
+| 06 | PostgreSQL source of truth | connection limits, actor/version migrations, optimistic lock, query budget | Implemented |
+| 07 | Evidence immutable | private CAS, ClamAV, quota, token access, audit, Restic/restore verification | Implemented |
 | 08 | Valkey/RabbitMQ/Celery | Compose dan Celery config | Baseline |
 | 09 | Transactional outbox | `shared.OutboxEvent`, `record_change` | Baseline |
 | 10 | Observability dan SLO | `deploy/observability`, architecture SLO | Baseline |

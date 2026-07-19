@@ -19,9 +19,37 @@ class VersionedModel(TimeStampedModel):
     effective_from = models.DateField(null=True, blank=True)
     effective_to = models.DateField(null=True, blank=True)
     lock_version = models.PositiveIntegerField(default=0)
+    created_by_actor_id = models.CharField(max_length=64, blank=True)
+    updated_by_actor_id = models.CharField(max_length=64, blank=True)
+
+    def _validate_effective_period(self):
+        if self.effective_to and (
+            self.effective_from is None or self.effective_to < self.effective_from
+        ):
+            raise ValidationError("Periode efektif tidak valid")
+
+    def clean(self):
+        self._validate_effective_period()
+
+    def save(self, *args, **kwargs):
+        self._validate_effective_period()
+        return super().save(*args, **kwargs)
 
     class Meta:
         abstract = True
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(version__gte=1),
+                name="%(app_label)s_%(class)s_version_gte_1",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(effective_to__isnull=True)
+                | models.Q(
+                    effective_from__isnull=False, effective_to__gte=models.F("effective_from")
+                ),
+                name="%(app_label)s_%(class)s_effective_period_valid",
+            ),
+        ]
 
 
 class AuditEvent(models.Model):
@@ -135,6 +163,18 @@ class AcademicRule(VersionedModel):
 
 
 class FileManifest(models.Model):
+    class Classification(models.TextChoices):
+        PUBLIC = "public", "Public"
+        INTERNAL = "internal", "Internal"
+        CONFIDENTIAL = "confidential", "Confidential"
+        RESTRICTED_EXAM = "restricted-exam", "Restricted Exam"
+
+    class ScanStatus(models.TextChoices):
+        SKIPPED = "skipped", "Skipped"
+        CLEAN = "clean", "Clean"
+        INFECTED = "infected", "Infected"
+        ERROR = "error", "Error"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sha256 = models.CharField(max_length=64, db_index=True)
     size = models.PositiveBigIntegerField()
@@ -143,14 +183,43 @@ class FileManifest(models.Model):
     academic_object = models.CharField(max_length=160)
     period = models.CharField(max_length=40, blank=True)
     version = models.PositiveIntegerField(default=1)
-    classification = models.CharField(max_length=32, default="internal")
-    content_path = models.CharField(max_length=255, unique=True)
+    classification = models.CharField(
+        max_length=32,
+        choices=Classification.choices,
+        default=Classification.INTERNAL,
+    )
+    original_filename = models.CharField(max_length=255, blank=True)
+    content_path = models.CharField(max_length=255)
+    scan_status = models.CharField(
+        max_length=16,
+        choices=ScanStatus.choices,
+        default=ScanStatus.SKIPPED,
+    )
+    scanner_signature = models.CharField(max_length=160, blank=True)
+    scanned_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("FileManifest bersifat immutable")
+        if len(self.sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in self.sha256
+        ):
+            raise ValidationError("SHA-256 manifest tidak valid")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("FileManifest tidak boleh dihapus")
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["sha256", "academic_object", "version"],
+                fields=["academic_object", "version"],
                 name="manifest_object_version_unique",
-            )
+            ),
+            models.CheckConstraint(condition=models.Q(size__gt=0), name="manifest_size_gt_0"),
+            models.CheckConstraint(
+                condition=models.Q(version__gte=1), name="manifest_version_gte_1"
+            ),
         ]
+        indexes = [models.Index(fields=["owner_id", "created_at"])]

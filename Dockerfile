@@ -12,7 +12,7 @@ RUN npm run build
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
-RUN addgroup --system obe && adduser --system --ingroup obe obe
+RUN groupadd --gid 20001 obe && useradd --uid 20001 --gid obe --no-create-home --shell /usr/sbin/nologin obe
 COPY pyproject.toml ./
 COPY requirements ./requirements
 COPY config ./config

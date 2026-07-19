@@ -1,0 +1,12 @@
+[Unit]
+Description=Encrypted off-host OBE backup
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/obe-backup.env
+ExecStart=/usr/local/sbin/obe-backup
+NoNewPrivileges=true
+PrivateTmp=true

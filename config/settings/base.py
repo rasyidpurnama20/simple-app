@@ -9,6 +9,8 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 env = environ.Env(
     OBE_DEBUG=(bool, False),
     OBE_AI_ENABLED=(bool, False),
+    OBE_MAINTENANCE_MODE=(bool, False),
+    EVIDENCE_ANTIVIRUS_REQUIRED=(bool, False),
 )
 _REQUESTED_PROFILE = requested_profile()
 if _REQUESTED_PROFILE == "local":
@@ -50,6 +52,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "obe.shared.middleware.MaintenanceModeMiddleware",
+    "obe.shared.middleware.QueryBudgetMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -86,6 +90,19 @@ DATABASES = {
         secret_value("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
     )
 }
+DATABASES["default"].update(
+    {
+        "CONN_MAX_AGE": env.int("OBE_DB_CONN_MAX_AGE", default=60),
+        "CONN_HEALTH_CHECKS": True,
+    }
+)
+if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+    DATABASES["default"].setdefault("OPTIONS", {}).update(
+        {
+            "connect_timeout": env.int("OBE_DB_CONNECT_TIMEOUT", default=5),
+            "application_name": env("OBE_DB_APPLICATION_NAME", default="obe-apps"),
+        }
+    )
 CACHES = {
     "default": env.cache("CACHE_URL", default="locmemcache://obe-local"),
 }
@@ -110,6 +127,11 @@ STORAGES = {
 }
 MEDIA_ROOT = BASE_DIR / "var" / "uploads"
 EVIDENCE_ROOT = Path(env("EVIDENCE_ROOT", default=str(BASE_DIR / "var" / "evidence")))
+EVIDENCE_OWNER_QUOTA_BYTES = env.int("EVIDENCE_OWNER_QUOTA_BYTES", default=512 * 1024 * 1024)
+EVIDENCE_DOWNLOAD_TTL_SECONDS = env.int("EVIDENCE_DOWNLOAD_TTL_SECONDS", default=300)
+EVIDENCE_ANTIVIRUS_REQUIRED = env.bool("EVIDENCE_ANTIVIRUS_REQUIRED")
+CLAMAV_HOST = env("CLAMAV_HOST", default="clamav")
+CLAMAV_PORT = env.int("CLAMAV_PORT", default=3310)
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -151,6 +173,10 @@ OBE_EXAM_SIGNING_KEY = secret_value("OBE_EXAM_SIGNING_KEY")
 OBE_EXAM_SIGNING_KEY_FALLBACKS = secret_values("OBE_EXAM_SIGNING_KEY_FALLBACKS")
 OBE_EXAM_SYNC_TOKEN = secret_value("OBE_EXAM_SYNC_TOKEN")
 OBE_RELEASE = env("OBE_RELEASE", default="dev")
+OBE_MAINTENANCE_MODE = env.bool("OBE_MAINTENANCE_MODE")
+OBE_MAINTENANCE_FILE = env("OBE_MAINTENANCE_FILE", default="")
+OBE_QUERY_BUDGET = env.int("OBE_QUERY_BUDGET", default=50)
+OBE_SLOW_QUERY_MS = env.int("OBE_SLOW_QUERY_MS", default=250)
 
 register_sensitive_values(
     [

@@ -11,6 +11,7 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+EVIDENCE_ANTIVIRUS_REQUIRED = True
 
 if os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".production"):
     validate_runtime_configuration(globals(), "production")
