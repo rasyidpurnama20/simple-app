@@ -1,4 +1,4 @@
-from obe.assessment.models import AttainmentSnapshot
+from obe.assessment.models import AssessmentItem, AttainmentSnapshot
 
 
 def semantic_attainment(*, course: str = "", outcome: str = "") -> list[dict]:
@@ -28,3 +28,19 @@ def semantic_attainment(*, course: str = "", outcome: str = "") -> list[dict]:
             }
         )
     return rows
+
+
+def assessment_item_payload(item: AssessmentItem, *, can_view_answer_key: bool = False) -> dict:
+    """Answer keys are never returned to participant-facing selectors."""
+    payload = {
+        "public_id": str(item.public_id),
+        "code": item.code,
+        "prompt": item.prompt,
+        "item_type": item.item_type,
+        "points": str(item.points),
+        "indicator_codes": item.indicator_codes,
+        "sub_outcome_codes": item.sub_outcome_codes,
+    }
+    if can_view_answer_key:
+        payload["answer_key"] = item.answer_key
+    return payload

@@ -106,6 +106,17 @@ class Importer:
                 ("course", "curriculum", "Course"),
                 ("edge", "curriculum", "CurriculumEdge"),
                 ("snapshot", "assessment", "AttainmentSnapshot"),
+                ("instrument", "assessment", "AssessmentInstrument"),
+                ("rubric", "assessment", "Rubric"),
+                ("criterion", "assessment", "RubricCriterion"),
+                ("level", "assessment", "PerformanceLevel"),
+                ("item", "assessment", "AssessmentItem"),
+                ("offering", "learning", "CourseOffering"),
+                ("rps", "learning", "RPSVersion"),
+                ("course_outcome", "learning", "CourseOutcome"),
+                ("sub_outcome", "learning", "SubOutcome"),
+                ("indicator", "learning", "PerformanceIndicator"),
+                ("weekly_plan", "learning", "WeeklyPlan"),
                 ("student", "academic_lifecycle", "StudentProfile"),
                 ("status", "academic_lifecycle", "AcademicStatus"),
                 ("plan", "academic_lifecycle", "EnrollmentPlan"),
@@ -123,6 +134,7 @@ class Importer:
         curriculum = self.import_curriculum()
         courses = self.import_courses(curriculum)
         self.import_edges(curriculum)
+        self.import_learning_assessment(curriculum, courses)
         self.import_attainment(courses)
         self.import_students(curriculum, courses)
         self.import_tasks(curriculum)
@@ -305,6 +317,503 @@ class Importer:
             courses[item["code"]] = course
             self.counts["courses"] += 1
         return courses
+
+    def _learning_slice(self) -> tuple[dict, list[dict], list[dict], list[dict], list[dict], dict]:
+        """Return the exact MIK1624101 slice, with a compact-fixture fallback."""
+        learning = self.dataset.get("learning", {})
+        rps_rows = learning.get("rpsVersions", [])
+        rps = next(
+            (row for row in rps_rows if row.get("courseCode") == "MIK1624101"),
+            {
+                "id": "RPS-MIK1624101-2024-V1",
+                "uuid": "17237222-a7e1-5fa0-a42d-575473157ba6",
+                "courseCode": "MIK1624101",
+                "curriculumVersionId": "CURR-S1IF-2024-V1",
+                "version": 1,
+                "status": "published-demo",
+                "publicationScope": "fixture-only",
+                "effectiveAcademicYear": "2024/2025",
+            },
+        )
+        outcomes = [
+            row
+            for row in learning.get("courseOutcomes", [])
+            if row.get("rpsVersionId") == rps["id"]
+        ] or [
+            {
+                "id": "CO-MIK1624101-01",
+                "uuid": "7064abc5-ede5-522e-a6cd-80c9c6db0232",
+                "localCode": "CPMK-01",
+                "programCpmkId": "CPMK14",
+                "description": "Mampu menerapkan konsep sistem untuk merancang solusi atas permasalahan sederhana.",
+                "bloomLevel": "apply-analyze",
+                "weight": 100,
+                "target": 75,
+            }
+        ]
+        outcome_ids = {row["id"] for row in outcomes}
+        subs = [
+            row
+            for row in learning.get("subOutcomes", [])
+            if row.get("courseOutcomeId") in outcome_ids
+        ] or [
+            {
+                "id": f"SCO-CO-MIK1624101-01-0{order}",
+                "uuid": uid,
+                "courseOutcomeId": "CO-MIK1624101-01",
+                "code": f"CPMK-01.0{order}",
+                "description": description,
+                "weightWithinCourseOutcome": weight,
+                "bloomLevel": bloom,
+                "target": 75,
+                "order": order,
+            }
+            for order, uid, description, weight, bloom in (
+                (
+                    1,
+                    "864c0d92-29b0-5a7d-a343-e5e74776493e",
+                    "Menjelaskan konsep utama Dasar Sistem secara tepat.",
+                    30,
+                    "understand",
+                ),
+                (
+                    2,
+                    "69b54200-f8ff-5073-8b6a-b9724613b87d",
+                    "Menerapkan konsep dan kakas Dasar Sistem untuk menyelesaikan masalah terstruktur.",
+                    40,
+                    "apply",
+                ),
+                (
+                    3,
+                    "7048bb8e-d467-54e8-92a7-583b86c0f3b3",
+                    "Mengevaluasi hasil, keterbatasan, dan bukti pekerjaan pada Dasar Sistem.",
+                    30,
+                    "evaluate",
+                ),
+            )
+        ]
+        sub_ids = {row["id"] for row in subs}
+        indicators = [
+            row for row in learning.get("indicators", []) if row.get("subOutcomeId") in sub_ids
+        ]
+        if not indicators:
+            indicator_uuids = (
+                "7a2126db-4cb0-5e86-bffb-cce8def2678b",
+                "f0fca361-f0ff-5095-a408-4881289fd323",
+                "825a982f-c26c-5aaa-9937-b7561fff74a7",
+            )
+            indicators = [
+                {
+                    "id": f"IND-{sub['id']}",
+                    "uuid": uid,
+                    "subOutcomeId": sub["id"],
+                    "description": f"Mahasiswa menghasilkan respons atau artefak terukur untuk: {sub['description']}",
+                    "measurementUnit": "normalized-score-0-100",
+                    "target": 75,
+                    "observable": True,
+                }
+                for sub, uid in zip(subs, indicator_uuids, strict=True)
+            ]
+        weeks = [
+            row for row in learning.get("weeklyPlans", []) if row.get("rpsVersionId") == rps["id"]
+        ]
+        if not weeks:
+            weeks = []
+            regular_index = 0
+            for week in range(1, 17):
+                if week in {8, 16}:
+                    sub_indexes = [0] if week == 8 else [1, 2]
+                    weeks.append(
+                        {
+                            "week": week,
+                            "subOutcomeIds": [subs[index]["id"] for index in sub_indexes],
+                            "indicatorIds": [],
+                            "topic": "Ujian Tengah Semester"
+                            if week == 8
+                            else "Ujian Akhir Semester",
+                            "methods": ["assessment"],
+                            "activities": ["midterm-exam" if week == 8 else "final-exam"],
+                            "contactMinutes": 90,
+                            "structuredMinutes": 0,
+                            "independentMinutes": 0,
+                        }
+                    )
+                    continue
+                sub = subs[regular_index % 3]
+                indicator = indicators[regular_index % 3]
+                regular_index += 1
+                methods = (
+                    ["case-based-learning", "discussion"]
+                    if regular_index % 2
+                    else ["problem-based-learning", "collaborative-learning"]
+                )
+                weeks.append(
+                    {
+                        "week": week,
+                        "subOutcomeIds": [sub["id"]],
+                        "indicatorIds": [indicator["id"]],
+                        "topic": f"Dasar Sistem: pembelajaran tahap {regular_index}",
+                        "methods": methods,
+                        "activities": ["instruction", "guided-practice", "reflection"],
+                        "contactMinutes": 150,
+                        "structuredMinutes": 180,
+                        "independentMinutes": 180,
+                    }
+                )
+        assessment = self.dataset.get("assessment", {})
+        return rps, outcomes, subs, indicators, weeks, assessment
+
+    def import_learning_assessment(self, curriculum, courses: dict[str, Any]) -> None:
+        rps_data, outcomes, subs, indicators, weeks, assessment = self._learning_slice()
+        course = courses[rps_data["courseCode"]]
+        Offering = self.models["offering"]
+        RPS = self.models["rps"]
+        CourseOutcome = self.models["course_outcome"]
+        SubOutcome = self.models["sub_outcome"]
+        Indicator = self.models["indicator"]
+        WeeklyPlan = self.models["weekly_plan"]
+        Instrument = self.models["instrument"]
+        Rubric = self.models["rubric"]
+        Criterion = self.models["criterion"]
+        Level = self.models["level"]
+        Item = self.models["item"]
+        offering, _ = Offering.objects.update_or_create(
+            course_public_id=course.public_id,
+            academic_year="2024/2025",
+            semester="odd",
+            class_code="A",
+            defaults={
+                "public_id": uuid.UUID("6e014092-3290-57cb-9b40-b58dc88b97e2"),
+                "curriculum_version_public_id": curriculum.public_id,
+                "parallel_group": "PG-2024-1-MIK1624101",
+                "coordinator": self.users["pengampu"],
+                "schedule": {"day": "Rabu", "startTime": "13:00", "durationMinutes": 150},
+                "room": "FSM-334",
+                "capacity": 50,
+                "status": "completed-demo",
+                "starts_on": date(2024, 8, 1),
+                "ends_on": date(2024, 12, 31),
+            },
+        )
+        offering.lecturers.add(self.users["pengampu"])
+        rps, _ = RPS.objects.update_or_create(
+            offering=offering,
+            version=rps_data.get("version", 1),
+            defaults={
+                "public_id": uuid.UUID(rps_data["uuid"]),
+                "status": "draft",
+                "content": {
+                    "references": ["Spesifikasi OBE schema v5"],
+                    "learning_materials": ["Dasar Sistem"],
+                    "source_status": rps_data.get("status"),
+                    "publication_scope": rps_data.get("publicationScope", "fixture-only"),
+                    "source_ref": rps_data.get("sourceRef", {"recordKey": rps_data["id"]}),
+                },
+                "total_assessment_weight": decimal(rps_data.get("assessmentWeightTotal"), "100"),
+                "authored_by": self.users["pengampu"],
+                "effective_from": date(2024, 8, 1),
+                "created_by_actor_id": str(self.users["pengampu"].pk),
+                "updated_by_actor_id": str(self.users["pengampu"].pk),
+            },
+        )
+        outcome_map = {}
+        for order, row in enumerate(outcomes, 1):
+            program_cpmk = row["programCpmkId"]
+            cpl_ids = [
+                cpl_id
+                for cpl_id, cpmk_ids in self.dataset["cplToCpmk"].items()
+                if program_cpmk in cpmk_ids
+            ]
+            obj, _ = CourseOutcome.objects.update_or_create(
+                rps=rps,
+                code=row["localCode"],
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "description": row["description"],
+                    "bloom_level": row["bloomLevel"],
+                    "target": decimal(row.get("target"), "75"),
+                    "weight": decimal(row["weight"]),
+                    "order": order,
+                    "program_cpmk_ids": [program_cpmk],
+                    "cpl_ids": cpl_ids,
+                    "status": "active",
+                },
+            )
+            outcome_map[row["id"]] = obj
+            self.counts["rps_course_outcomes"] += 1
+        sub_map = {}
+        for row in subs:
+            obj, _ = SubOutcome.objects.update_or_create(
+                rps=rps,
+                code=row["code"],
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "course_outcome": outcome_map[row["courseOutcomeId"]],
+                    "description": row["description"],
+                    "bloom_level": row["bloomLevel"],
+                    "target": decimal(row.get("target"), "75"),
+                    "weight": decimal(row["weightWithinCourseOutcome"]),
+                    "order": row.get("order", 1),
+                    "status": "active",
+                },
+            )
+            sub_map[row["id"]] = obj
+            self.counts["rps_sub_outcomes"] += 1
+        indicator_map = {}
+        for order, row in enumerate(indicators, 1):
+            obj, _ = Indicator.objects.update_or_create(
+                rps=rps,
+                code=row["id"],
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "sub_outcome": sub_map[row["subOutcomeId"]],
+                    "description": row["description"],
+                    "measurement": row.get("measurementUnit", "normalized-score-0-100"),
+                    "target": decimal(row.get("target"), "75"),
+                    "observable": row.get("observable", True),
+                    "order": order,
+                    "status": "active",
+                },
+            )
+            indicator_map[row["id"]] = obj
+            self.counts["rps_indicators"] += 1
+        for row in weeks:
+            week = int(row["week"])
+            meeting_type = "midterm" if week == 8 else "final" if week == 16 else "regular"
+            WeeklyPlan.objects.update_or_create(
+                rps=rps,
+                week=week,
+                defaults={
+                    "meeting_type": meeting_type,
+                    "outcomes": [sub_map[item].code for item in row.get("subOutcomeIds", [])],
+                    "indicators": [
+                        indicator_map[item].code for item in row.get("indicatorIds", [])
+                    ],
+                    "material": row["topic"],
+                    "methods": row["methods"],
+                    "activities": row["activities"],
+                    "contact_minutes": row["contactMinutes"],
+                    "structured_minutes": row["structuredMinutes"],
+                    "independent_minutes": row["independentMinutes"],
+                    "planned_date": date(2024, 8, 1) + timedelta(days=(week - 1) * 7),
+                },
+            )
+            self.counts["weekly_plans"] += 1
+
+        rubric_rows = assessment.get("rubricLibrary") or [
+            {
+                "id": "RUBRIC-ANALYTIC-4LEVEL-V1",
+                "uuid": "fbd7cf5d-0948-51da-a561-3163988597df",
+                "version": 1,
+                "type": "analytic",
+                "criteria": [
+                    {"code": "ACCURACY", "name": "Ketepatan", "weight": 35},
+                    {"code": "METHOD", "name": "Metode dan Penalaran", "weight": 30},
+                    {"code": "COMPLETENESS", "name": "Kelengkapan", "weight": 20},
+                    {"code": "COMMUNICATION", "name": "Komunikasi dan Dokumentasi", "weight": 15},
+                ],
+                "levels": [
+                    {"code": "L4", "name": "Istimewa", "min": 90, "max": 100},
+                    {"code": "L3", "name": "Unggul", "min": 75, "max": 89.99},
+                    {"code": "L2", "name": "Kompeten", "min": 60, "max": 74.99},
+                    {"code": "L1", "name": "Belum Kompeten", "min": 0, "max": 59.99},
+                ],
+            },
+            {
+                "id": "RUBRIC-NUMERIC-MARKING-V1",
+                "uuid": "4bbfdcf7-26b0-5a92-a7ff-373b048cab37",
+                "version": 1,
+                "type": "numeric-marking-scheme",
+                "criteria": [{"code": "TOTAL", "name": "Skor Total", "weight": 100}],
+                "levels": [],
+            },
+        ]
+        rubric_map = {}
+        indicator_codes = [item.code for item in indicator_map.values()]
+        sub_codes = [item.code for item in sub_map.values()]
+        for row in rubric_rows:
+            rubric_code = row["id"].rsplit("-V", 1)[0]
+            rubric = Rubric.objects.filter(code=rubric_code, version=row.get("version", 1)).first()
+            if rubric is None:
+                rubric = Rubric.objects.create(
+                    code=rubric_code,
+                    version=row.get("version", 1),
+                    public_id=uuid.UUID(row["uuid"]),
+                    title=row["id"],
+                    kind="numeric" if row["type"] == "numeric-marking-scheme" else row["type"],
+                    status="draft",
+                )
+            rubric_map[row["id"]] = rubric
+            if rubric.status != "published":
+                for order, criterion in enumerate(row["criteria"], 1):
+                    Criterion.objects.update_or_create(
+                        rubric=rubric,
+                        code=criterion["code"],
+                        defaults={
+                            "title": criterion["name"],
+                            "description": f"Kriteria {criterion['name']} untuk capaian Dasar Sistem",
+                            "weight": decimal(criterion["weight"]),
+                            "indicator_codes": indicator_codes,
+                            "sub_outcome_codes": sub_codes,
+                            "order": order,
+                        },
+                    )
+                for order, level in enumerate(row.get("levels", []), 1):
+                    Level.objects.update_or_create(
+                        rubric=rubric,
+                        code=level["code"],
+                        defaults={
+                            "descriptor": level["name"],
+                            "minimum": decimal(level["min"]),
+                            "maximum": decimal(level["max"]),
+                            "points": decimal(level["min"]),
+                            "order": order,
+                        },
+                    )
+                rubric.status = "published"
+                rubric.save(update_fields=["status", "updated_at"])
+            self.counts["rubrics"] += 1
+
+        plan_rows = [
+            row
+            for row in assessment.get("assessmentPlans", [])
+            if row.get("rpsVersionId") == rps_data["id"]
+        ]
+        if not plan_rows:
+            weights = {
+                "PARTICIPATION": 10,
+                "ASSIGNMENT": 20,
+                "QUIZ": 10,
+                "PRACTICE_PROJECT": 20,
+                "MIDTERM": 20,
+                "FINAL": 20,
+            }
+            names = {
+                "PARTICIPATION": "Aktivitas Partisipatif",
+                "ASSIGNMENT": "Tugas",
+                "QUIZ": "Kuis",
+                "PRACTICE_PROJECT": "Praktikum/Proyek/Presentasi",
+                "MIDTERM": "Ujian Tengah Semester",
+                "FINAL": "Ujian Akhir Semester",
+            }
+            plan_uuids = {
+                "PARTICIPATION": "4dcb3d03-71f6-5aaf-a644-efede9ec97ba",
+                "ASSIGNMENT": "9ad9feb3-5048-5ef7-99d7-0f0667eb00a6",
+                "QUIZ": "a8bb7b72-bb42-56d0-9d54-db214f1183ea",
+                "PRACTICE_PROJECT": "7265878b-baa1-5b28-9c7d-8abacf003f0b",
+                "MIDTERM": "6e20e5ed-1259-582c-8591-bde00c597b60",
+                "FINAL": "96cc0b47-0be7-5b44-95b1-2455f44b0928",
+            }
+            plan_rows = []
+            for index, code in enumerate(weights):
+                mapped = [subs[index % 3]] if index < 3 else subs
+                plan_rows.append(
+                    {
+                        "id": f"ASM-MIK1624101-{code}",
+                        "uuid": plan_uuids[code],
+                        "instrumentCode": code,
+                        "name": names[code],
+                        "weight": weights[code],
+                        "attemptLimit": 1,
+                        "rubricId": "RUBRIC-NUMERIC-MARKING-V1"
+                        if code in {"MIDTERM", "FINAL"}
+                        else "RUBRIC-ANALYTIC-4LEVEL-V1",
+                        "outcomeMappings": [
+                            {
+                                "subOutcomeId": item["id"],
+                                "allocationWeight": 100
+                                if len(mapped) == 1
+                                else [33.33, 33.33, 33.34][position],
+                            }
+                            for position, item in enumerate(mapped)
+                        ],
+                        "evidenceRequired": True,
+                        "evidenceClass": "restricted-exam"
+                        if code in {"MIDTERM", "FINAL"}
+                        else "confidential",
+                    }
+                )
+        instruments = []
+        for index, row in enumerate(plan_rows, 1):
+            mappings = []
+            for mapping in row["outcomeMappings"]:
+                sub = sub_map[mapping["subOutcomeId"]]
+                mappings.append(
+                    {
+                        "sub_outcome_codes": [sub.code],
+                        "indicator_codes": list(sub.indicators.values_list("code", flat=True)),
+                        "allocation_weight": mapping["allocationWeight"],
+                    }
+                )
+            rubric = rubric_map[row["rubricId"]]
+            instrument, _ = Instrument.objects.update_or_create(
+                offering_public_id=offering.public_id,
+                code=row["instrumentCode"],
+                version=1,
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "rps_public_id": rps.public_id,
+                    "title": row["name"],
+                    "kind": "summative"
+                    if row["instrumentCode"] in {"MIDTERM", "FINAL"}
+                    else "formative",
+                    "purpose": f"Mengukur capaian melalui {row['name']}",
+                    "participant_scope": {"offering": str(offering.public_id)},
+                    "mode": "onsite",
+                    "weight": decimal(row["weight"]),
+                    "schedule": timezone.make_aware(
+                        datetime(2024, 8, 1) + timedelta(days=index * 14)
+                    ),
+                    "attempts": row.get("attemptLimit", 1),
+                    "assessor_id": str(self.users["pengampu"].pk),
+                    "mappings": mappings,
+                    "blueprint": {
+                        "outcome_distribution": mappings,
+                        "difficulty": "mixed",
+                        "form": "constructed-response",
+                        "coverage": mappings,
+                        "durationMinutes": 90,
+                    },
+                    "rubric_public_id": rubric.public_id,
+                    "evidence_required": row.get("evidenceRequired", True),
+                    "evidence_class": row.get("evidenceClass", "confidential"),
+                    "status": "draft",
+                },
+            )
+            Item.objects.update_or_create(
+                instrument=instrument,
+                code="ITEM-01",
+                defaults={
+                    "prompt": f"Tunjukkan bukti capaian untuk {row['name']}",
+                    "item_type": "constructed-response",
+                    "points": 100,
+                    "difficulty": "mixed",
+                    "indicator_codes": sorted(
+                        {code for item in mappings for code in item["indicator_codes"]}
+                    ),
+                    "sub_outcome_codes": sorted(
+                        {code for item in mappings for code in item["sub_outcome_codes"]}
+                    ),
+                    "answer_key": {"classification": "controlled", "reference": f"KEY-{row['id']}"},
+                },
+            )
+            instruments.append(instrument)
+            self.counts["assessment_instruments"] += 1
+        snapshot = [
+            {
+                "code": row.code,
+                "weight": str(row.weight),
+                "mappings": row.mappings,
+                "status": "published",
+                "published_before_teaching": True,
+                "source_status": "published-demo",
+            }
+            for row in sorted(instruments, key=lambda item: item.code)
+        ]
+        rps.content = {**rps.content, "assessment_snapshot": snapshot}
+        rps.save(update_fields=["content", "updated_at"])
+        self.counts["course_offerings"] += 1
+        self.counts["rps_versions"] += 1
 
     def import_edges(self, curriculum) -> None:
         groups: dict[tuple[str, str, str], list[tuple[str, Decimal]]] = defaultdict(list)

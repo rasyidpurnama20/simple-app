@@ -24,7 +24,7 @@ Buka <http://localhost:8000>. Data demo dibuat otomatis.
 
 Password acak ditampilkan sekali oleh `setup-local.sh` dan tersimpan di `.env` privat. Seed demo otomatis ditolak saat mode production/non-debug.
 
-Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, 2 package cohort, 11 academic rule, pemetaan kurikulum, agregat capaian, dan empat riwayat mahasiswa sintetis. Detail provenance serta pemetaan model tersedia di [panduan dataset v5](docs/DATASET_V5.md).
+Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, 2 package cohort, 11 academic rule, serta irisan RPS/asesmen `MIK1624101` (1 CPMK-RPS, 3 Sub-CPMK, 3 indikator, 16 minggu, 6 instrumen, dan 2 rubrik). Detail provenance tersedia di [panduan dataset v5](docs/DATASET_V5.md).
 
 Untuk menghentikan aplikasi:
 
@@ -87,14 +87,16 @@ Keamanan berlapis memakai rate limit per endpoint/aktor, scoped permission tungg
 
 Kurikulum memakai lifecycle maker-reviewer-approver-activator, paket JSON/CSV ber-checksum, clone/diff/rollback, serta weighted trace PL→CPL→BK→mata kuliah→CPMK. Lihat [runbook kurikulum](docs/CURRICULUM_RUNBOOK.md) dan [penerimaan PR-19–PR-24](docs/PR19_PR24_ACCEPTANCE.md). Dataset demo sengaja tetap `review` karena 129 SKS wajib dan CPMK22/CPMK27 belum memiliki mapping sumber.
 
+RPS dan asesmen memakai checksum approval yang replayable, komentar per field, desain 16 minggu, blueprint 100%, rubrik/butir berversi, controlled answer key, second marker, dan regrade tanpa menimpa nilai lama. Mulai dari [runbook RPS dan asesmen](docs/RPS_ASSESSMENT_RUNBOOK.md) serta [penerimaan PR-25–PR-29](docs/PR25_PR29_ACCEPTANCE.md).
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
 |---|---|---|
-| Prodi | versi rule/package, aktivasi maker-checker, override | [Tutorial Prodi](docs/tutorials/prodi.md) |
-| GPM | review rule, integrity issue, verifikasi dan banding | [Tutorial GPM](docs/tutorials/gpm.md) |
-| Pengampu | evidence row, explanation, koreksi dan pengajuan override | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
-| Mahasiswa | keputusan pribadi, explanation dan banding | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
+| Prodi | approval RPS, versi rule/package, aktivasi maker-checker | [Tutorial Prodi](docs/tutorials/prodi.md) |
+| GPM | review RPS per field, validasi blueprint dan realisasi | [Tutorial GPM](docs/tutorials/gpm.md) |
+| Pengampu | susun RPS/16 minggu, instrumen, rubrik, grading | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
+| Mahasiswa | instrumen, submission, feedback, keputusan pribadi | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
 
 Fungsi DPA, koordinator, pembimbing, penguji, mentor, dan TPMF dijalankan sebagai assignment terbatas dari peran utama. Lihat [indeks tutorial aktor](docs/tutorials/README.md) untuk batas scope-nya.
 
@@ -148,7 +150,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 122 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, evidence, identity, dan shared decision engine.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 131 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, learning/assessment, evidence, identity, dan shared decision engine.
 
 ## Dokumentasi
 
@@ -180,6 +182,8 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Audit penerimaan PR-11–PR-14](docs/PR11_PR14_ACCEPTANCE.md)
 - [Audit penerimaan PR-15–PR-18](docs/PR15_PR18_ACCEPTANCE.md)
 - [Audit penerimaan PR-19–PR-24](docs/PR19_PR24_ACCEPTANCE.md)
+- [Runbook RPS dan asesmen](docs/RPS_ASSESSMENT_RUNBOOK.md)
+- [Audit penerimaan PR-25–PR-29](docs/PR25_PR29_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 
