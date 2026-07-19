@@ -23,6 +23,13 @@ Mahasiswa melihat tugas dan riwayat akademiknya sendiri tanpa memperoleh akses k
 2. Cari **Periksa riwayat studi dan capaian pribadi**.
 3. Cocokkan hasil dengan halaman Kemajuan. Gunakan kanal akademik resmi bila memerlukan koreksi.
 
+## Pahami keputusan dan ajukan banding
+
+1. Pada keputusan blocking milik sendiri, baca rule code/version, input yang digunakan, kondisi gagal, sumber data, dan langkah perbaikan. Mahasiswa tidak dapat membuka decision mahasiswa lain.
+2. Laporkan koreksi sumber kepada Pengampu/Prodi; decision snapshot historis tidak dihapus atau ditimpa.
+3. Bila keputusan tetap diperselisihkan, ajukan banding sebelum expiry dengan pernyataan dan dokumen bukti.
+4. Pantau state `submitted`, `information-needed`, `reviewed`, lalu `approved`/`rejected` dan `closed`. Lengkapi informasi ketika diminta; pemohon tidak dapat mereview bandingnya sendiri.
+
 ## Lihat konteks program
 
 Dashboard dan katalog bersifat agregat/program. Mahasiswa boleh melihatnya sebagai konteks, tetapi tidak boleh menyimpulkan posisi mahasiswa lain dari agregat tersebut.

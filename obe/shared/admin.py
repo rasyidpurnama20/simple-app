@@ -1,11 +1,15 @@
 from django.contrib import admin
 
 from obe.shared.models import (
+    AcademicAppeal,
+    AcademicDecision,
     AcademicRule,
     AuditEvent,
     AuditReference,
     AuditSensitivePayload,
+    CohortRulePackage,
     ConsumerCursor,
+    DecisionOverride,
     FeatureFlag,
     FileManifest,
     InboxEvent,
@@ -50,5 +54,8 @@ admin.site.register(
     ],
     ReadOnlyOperationalAdmin,
 )
-admin.site.register([AcademicRule, FileManifest])
+admin.site.register(
+    [AcademicRule, CohortRulePackage, DecisionOverride, AcademicAppeal, FileManifest]
+)
+admin.site.register(AcademicDecision, ReadOnlyOperationalAdmin)
 admin.site.register(FeatureFlag, ReadOnlyOperationalAdmin)

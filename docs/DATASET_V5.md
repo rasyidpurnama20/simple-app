@@ -2,9 +2,9 @@
 
 ## Import bawaan
 
-`fixtures/sample-data-2020-2026-obe-spec-v5.compact.json` memuat katalog lengkap schema v5: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, seluruh pemetaan, agregat capaian mata kuliah, serta empat riwayat mahasiswa sintetis representatif.
+`fixtures/sample-data-2020-2026-obe-spec-v5.compact.json` memuat katalog lengkap schema v5: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, seluruh pemetaan, agregat capaian mata kuliah, serta empat riwayat mahasiswa sintetis representatif. Untuk bagian governance yang tidak disalin ke fixture compact, importer memakai registry kanonik dari file v5 lengkap: 2 package cohort dan 11 academic rule.
 
-Salinan attachment yang tersedia berakhir di tengah record mahasiswa dan bukan JSON lengkap. Normalisasi hanya mengambil top-level catalog yang selesai serta record mahasiswa yang selesai; tidak ada bagian yang direka. Provenance dan strategi seleksi dicatat di `importMetadata`.
+File v5 lengkap dapat diberikan melalui `--path`; package dan rule dari file tersebut menjadi sumber utama. Fallback kanonik hanya dipakai untuk fixture compact dan mempunyai nilai yang sama dengan `academicRuleRegistry` v5.
 
 ## Menjalankan import
 
@@ -42,5 +42,10 @@ File invalid, terpotong, schema selain `5.0.0`, atau jumlah katalog yang tidak s
 | students | `StudentProfile` dan `AcademicStatus` |
 | semesterRecords.irs | `EnrollmentPlan` |
 | courseEnrollments | `AcademicResult` |
+| academicRuleRegistry.rulePackages | `CohortRulePackage` |
+| academicRuleRegistry.rules | `AcademicRule` |
+| decision snapshot runtime | `AcademicDecision` |
+| academicDecisions.overrides | workflow `DecisionOverride` tanpa perubahan data sumber |
+| validationReport/runtime validator | `IntegrityValidationRun` dan `IntegrityIssue` |
 
 Credit policy v5 mencatat 129 SKS wajib dan `activationValid=false`. Importer mempertahankan fakta tersebut serta menempatkan kurikulum pada status `review`; gate aktivasi aplikasi tetap mensyaratkan tepat 126 SKS.

@@ -23,6 +23,13 @@ Pengampu memakai katalog dan pemetaan capaian untuk menyiapkan RPS, asesmen, ser
 2. Cari **Periksa pemetaan CPMK dan bukti asesmen**.
 3. Sebelum menyatakan siap, pastikan CPMK, bobot asesmen, rubrik, dan evidence requirement konsisten. Workflow penerbitan tetap mengikuti draft Pengampu → review GPM → approval Prodi.
 
+## Tindak lanjuti keputusan akademik
+
+1. Buka explanation keputusan mata kuliah dan periksa rule code/version, field aktual, kondisi, evidence row, serta source version.
+2. Jika input sumber keliru, koreksi melalui gradebook/kehadiran resmi lalu minta revalidation; decision snapshot lama tidak boleh diedit.
+3. Jika pengecualian sah diperlukan, ajukan override dengan reason code, alasan, dokumen evidence immutable, dampak, dan expiry.
+4. Pengampu sebagai maker tidak boleh menyetujui override sendiri. Effective outcome berubah menjadi `overridden` hanya setelah checker berwenang menyetujui.
+
 ## Hasil yang diharapkan
 
 - Mata kuliah dan CPMK ditelusuri dari katalog yang sama.

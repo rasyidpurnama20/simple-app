@@ -373,6 +373,13 @@ class AcademicRule(VersionedModel):
         on_delete=models.PROTECT,
         related_name="rules_created",
     )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rules_reviewed",
+    )
     activated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -380,15 +387,236 @@ class AcademicRule(VersionedModel):
         on_delete=models.PROTECT,
         related_name="rules_activated",
     )
+    review_note = models.TextField(blank=True)
+    activated_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
-        if self.status == self.Status.ACTIVE and self.created_by_id == self.activated_by_id:
-            raise ValidationError("Maker dan checker rule harus berbeda")
+        super().clean()
+        if not self.code.strip() or not self.input_schema or not self.expression:
+            raise ValidationError("Rule memerlukan code, input schema, dan expression")
+        if self.severity not in {"blocking", "warning", "information"}:
+            raise ValidationError("Severity rule tidak dikenal")
+        if self.status in {self.Status.REVIEWED, self.Status.ACTIVE} and not self.reviewed_by_id:
+            raise ValidationError("Rule reviewed/active memerlukan reviewer")
+        if self.status == self.Status.ACTIVE:
+            if not self.activated_by_id or not self.activated_at:
+                raise ValidationError("Rule aktif memerlukan checker dan waktu aktivasi")
+            if self.created_by_id == self.activated_by_id:
+                raise ValidationError("Maker dan checker rule harus berbeda")
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).first()
+            if previous and previous.status == self.Status.ACTIVE:
+                old = {
+                    field.name: getattr(previous, field.name)
+                    for field in self._meta.concrete_fields
+                    if field.name not in {"status", "updated_at"}
+                }
+                new = {
+                    field.name: getattr(self, field.name)
+                    for field in self._meta.concrete_fields
+                    if field.name not in {"status", "updated_at"}
+                }
+                if old != new or self.status not in {self.Status.ACTIVE, self.Status.RETIRED}:
+                    raise ValidationError("Versi rule aktif bersifat immutable")
+        self.clean()
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["code", "version"], name="rule_version_unique")
         ]
+
+
+class CohortRulePackage(VersionedModel):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        REVIEWED = "reviewed", "Reviewed"
+        ACTIVE = "active", "Active"
+        RETIRED = "retired", "Retired"
+
+    code = models.CharField(max_length=80)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    cohort_from = models.PositiveSmallIntegerField()
+    cohort_to = models.PositiveSmallIntegerField(null=True, blank=True)
+    grade_scheme = models.JSONField(default=list)
+    minimum_passing_grade = models.CharField(max_length=4, default="C")
+    minimum_thesis_grade = models.CharField(max_length=4, default="B")
+    irs_policy = models.JSONField(default=dict, blank=True)
+    progress_milestones = models.JSONField(default=list, blank=True)
+    graduation_policy = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="rule_packages_created",
+    )
+    activated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rule_packages_activated",
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.cohort_to is not None and self.cohort_to < self.cohort_from:
+            raise ValidationError("Rentang cohort package tidak valid")
+        if not self.grade_scheme:
+            raise ValidationError("Package memerlukan grade scheme")
+        if self.status == self.Status.ACTIVE:
+            if not self.activated_by_id or not self.activated_at:
+                raise ValidationError("Package aktif memerlukan checker dan waktu aktivasi")
+            if self.created_by_id == self.activated_by_id:
+                raise ValidationError("Maker dan checker package harus berbeda")
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).first()
+            if previous and previous.status == self.Status.ACTIVE:
+                old = {
+                    field.name: getattr(previous, field.name)
+                    for field in self._meta.concrete_fields
+                    if field.name not in {"status", "updated_at"}
+                }
+                new = {
+                    field.name: getattr(self, field.name)
+                    for field in self._meta.concrete_fields
+                    if field.name not in {"status", "updated_at"}
+                }
+                if old != new or self.status not in {self.Status.ACTIVE, self.Status.RETIRED}:
+                    raise ValidationError("Package aktif bersifat immutable")
+        self.clean()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["code", "version"], name="rule_package_version_unique")
+        ]
+
+
+class AcademicDecision(models.Model):
+    class Outcome(models.TextChoices):
+        PASS = "pass", "Pass"
+        FAIL = "fail", "Fail"
+        INDETERMINATE = "indeterminate", "Indeterminate"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    object_type = models.CharField(max_length=80, db_index=True)
+    object_id = models.CharField(max_length=80, db_index=True)
+    rule = models.ForeignKey(AcademicRule, on_delete=models.PROTECT, related_name="decisions")
+    package = models.ForeignKey(
+        CohortRulePackage,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="decisions",
+    )
+    outcome = models.CharField(max_length=20, choices=Outcome.choices)
+    reason_code = models.CharField(max_length=100, db_index=True)
+    evidence_rows = models.JSONField(default=list)
+    input_snapshot = models.JSONField(default=dict)
+    calculation_trace = models.JSONField(default=list)
+    source_versions = models.JSONField(default=dict, blank=True)
+    explanation = models.TextField()
+    input_hash = models.CharField(max_length=64, db_index=True)
+    decision_hash = models.CharField(max_length=64, unique=True)
+    correlation_id = models.UUIDField(default=uuid.uuid4, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError("Decision snapshot bersifat immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Decision snapshot tidak boleh dihapus")
+
+    class Meta:
+        indexes = [models.Index(fields=["object_type", "object_id", "created_at"])]
+
+
+class DecisionOverride(TimeStampedModel):
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        REVIEWED = "reviewed", "Reviewed"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        EXPIRED = "expired", "Expired"
+        REVOKED = "revoked", "Revoked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    decision = models.ForeignKey(
+        AcademicDecision, on_delete=models.PROTECT, related_name="overrides"
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
+    reason_code = models.CharField(max_length=100)
+    reason = models.TextField()
+    evidence_documents = models.JSONField(default=list)
+    impact = models.TextField()
+    valid_from = models.DateTimeField(default=timezone.now)
+    valid_to = models.DateTimeField(null=True, blank=True)
+    maker = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="overrides_made"
+    )
+    checker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="overrides_checked",
+    )
+    review_note = models.TextField(blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        if self.valid_to and self.valid_to <= self.valid_from:
+            raise ValidationError("Masa berlaku override tidak valid")
+        if not self.reason_code.strip() or not self.reason.strip() or not self.impact.strip():
+            raise ValidationError("Override memerlukan reason code, alasan, dan dampak")
+        if not self.evidence_documents:
+            raise ValidationError("Override memerlukan dokumen bukti")
+        if self.checker_id and self.checker_id == self.maker_id:
+            raise ValidationError("Maker tidak boleh menyetujui override sendiri")
+        if self.status in {self.Status.APPROVED, self.Status.REJECTED} and not self.checker_id:
+            raise ValidationError("Keputusan override memerlukan checker")
+
+
+class AcademicAppeal(TimeStampedModel):
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        REVIEWED = "reviewed", "Reviewed"
+        INFORMATION_NEEDED = "information-needed", "Information needed"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        EXPIRED = "expired", "Expired"
+        CLOSED = "closed", "Closed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    decision = models.ForeignKey(AcademicDecision, on_delete=models.PROTECT, related_name="appeals")
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.SUBMITTED)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="appeals_submitted"
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="appeals_reviewed",
+    )
+    statement = models.TextField()
+    evidence_documents = models.JSONField(default=list)
+    information_request = models.TextField(blank=True)
+    resolution = models.TextField(blank=True)
+    expires_at = models.DateTimeField()
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        if self.reviewed_by_id and self.reviewed_by_id == self.submitted_by_id:
+            raise ValidationError("Pemohon banding tidak boleh menjadi reviewer")
 
 
 class FileManifest(models.Model):

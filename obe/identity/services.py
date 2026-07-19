@@ -26,6 +26,11 @@ DEMO_ACTIONS = {
         "quality.view",
         "analytics.view",
         "user.manage",
+        "rule.create",
+        "rule.activate",
+        "override.review",
+        "appeal.review",
+        "quality.release",
     ],
     "gpm": [
         "curriculum.view",
@@ -34,6 +39,10 @@ DEMO_ACTIONS = {
         "analytics.view",
         "evidence.verify",
         "evidence.download",
+        "rule.review",
+        "quality.validate",
+        "quality.verify",
+        "appeal.review",
     ],
     "pengampu": [
         "rps.edit",
@@ -42,6 +51,9 @@ DEMO_ACTIONS = {
         "course.view",
         "analytics.view",
         "evidence.download",
+        "decision.view",
+        "override.request",
+        "quality.resolve",
     ],
     "mahasiswa": [
         "course.view",
@@ -49,6 +61,8 @@ DEMO_ACTIONS = {
         "portfolio.view",
         "task.view",
         "evidence.download",
+        "decision.view",
+        "appeal.submit",
     ],
 }
 

@@ -2,7 +2,7 @@ import hashlib
 import json
 import uuid
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -14,6 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from obe.identity.services import ensure_demo_assignments
+from obe.shared.academic_rules import sample_rule_registry
 
 EXPECTED_SCHEMA = "5.0.0"
 DEFAULT_FIXTURE = (
@@ -34,6 +35,8 @@ def stable_uuid(*parts: object) -> uuid.UUID:
 
 
 def parse_date(value):
+    if isinstance(value, str):
+        return date.fromisoformat(value)
     return value or None
 
 
@@ -99,12 +102,15 @@ class Importer:
                 ("plan", "academic_lifecycle", "EnrollmentPlan"),
                 ("result", "academic_lifecycle", "AcademicResult"),
                 ("task", "academic_lifecycle", "TaskInstance"),
+                ("rule", "shared", "AcademicRule"),
+                ("rule_package", "shared", "CohortRulePackage"),
             )
         }
         self.users = ensure_demo_assignments()
         self.counts: dict[str, int] = defaultdict(int)
 
     def run(self) -> dict[str, int]:
+        self.import_academic_governance()
         curriculum = self.import_curriculum()
         courses = self.import_courses(curriculum)
         self.import_edges(curriculum)
@@ -112,6 +118,63 @@ class Importer:
         self.import_students(curriculum, courses)
         self.import_tasks(curriculum)
         return dict(self.counts)
+
+    def import_academic_governance(self) -> None:
+        registry = self.dataset.get("academicRuleRegistry") or sample_rule_registry()
+        Package = self.models["rule_package"]
+        Rule = self.models["rule"]
+        activated_at = timezone.make_aware(datetime(2024, 8, 1))
+        for item in registry.get("rulePackages", []):
+            code = item.get("code") or item["id"].rsplit("-V", 1)[0]
+            Package.objects.update_or_create(
+                code=code,
+                version=item.get("version", 1),
+                defaults={
+                    "cohort_from": item["cohortFrom"],
+                    "cohort_to": item.get("cohortTo"),
+                    "effective_from": parse_date(item.get("effectiveFrom")),
+                    "effective_to": parse_date(item.get("effectiveTo")),
+                    "status": item.get("status", "active"),
+                    "grade_scheme": item["gradeScheme"],
+                    "minimum_passing_grade": item.get("minimumPassingGrade", "C"),
+                    "minimum_thesis_grade": item.get("minimumThesisGrade", "B"),
+                    "irs_policy": item.get("irsPolicy", {}),
+                    "progress_milestones": item.get("progressMilestones", []),
+                    "graduation_policy": {
+                        "minimumTotalCredits": 144,
+                        "minimumRequiredCredits": 126,
+                        "minimumElectiveCredits": 18,
+                        "englishScore": 400,
+                    },
+                    "created_by": self.users["prodi"],
+                    "activated_by": self.users["gpm"],
+                    "activated_at": activated_at,
+                },
+            )
+            self.counts["rule_packages"] += 1
+        for item in registry.get("rules", []):
+            expression = item["expression"]
+            Rule.objects.update_or_create(
+                code=item["code"],
+                version=item.get("version", 1),
+                defaults={
+                    "scope": {"type": item["scope"]},
+                    "input_schema": {"required": sorted(expression)},
+                    "expression": expression,
+                    "priority": item.get("priority", 100),
+                    "severity": item.get("severity", "blocking"),
+                    "cohort": item.get("cohort", ""),
+                    "effective_from": parse_date(item.get("effectiveFrom")),
+                    "effective_to": parse_date(item.get("effectiveTo")),
+                    "status": item.get("status", "active"),
+                    "created_by": self.users["prodi"],
+                    "reviewed_by": self.users["gpm"],
+                    "activated_by": self.users["gpm"],
+                    "review_note": "Imported from synthetic OBE schema v5",
+                    "activated_at": activated_at,
+                },
+            )
+            self.counts["academic_rules"] += 1
 
     def import_curriculum(self):
         CurriculumVersion = self.models["curriculum"]
