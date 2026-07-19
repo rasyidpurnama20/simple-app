@@ -23,6 +23,17 @@ RESTORE_COMPONENTS = {
     "observability": "observability",
     "config": "config",
 }
+RUNTIME_SERVICES = (
+    "web",
+    "worker-interactive",
+    "worker-ai",
+    "worker-reports",
+    "worker-imports",
+    "worker-notifications",
+    "worker-sync",
+    "worker-batch",
+    "beat",
+)
 
 
 @dataclass(frozen=True)
@@ -85,7 +96,7 @@ def operation_plan(
             raise ValueError("Rollback membutuhkan OBE_IMAGE dengan digest immutable")
         return (
             Command(
-                (*compose, "up", "-d", "--no-deps", "--force-recreate", "web", "worker", "beat"),
+                (*compose, "up", "-d", "--no-deps", "--force-recreate", *RUNTIME_SERVICES),
                 (("OBE_IMAGE", image),),
             ),
         )
@@ -96,7 +107,7 @@ def operation_plan(
             raise ValueError("Snapshot restore tidak valid")
         include = data_root / RESTORE_COMPONENTS[component]
         commands = [
-            Command((*compose, "stop", "web", "worker", "beat")),
+            Command((*compose, "stop", *RUNTIME_SERVICES)),
             Command(("restic", "restore", snapshot, "--target", "/", "--include", str(include))),
         ]
         if component == "database":

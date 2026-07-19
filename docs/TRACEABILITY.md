@@ -11,9 +11,9 @@
 | 05 | Deployment reproducible | digest preflight, server/edge Compose, Ansible, idempotent ops, `PR05_PR07_ACCEPTANCE.md` | Implemented |
 | 06 | PostgreSQL source of truth | connection limits, actor/version migrations, optimistic lock, query budget | Implemented |
 | 07 | Evidence immutable | private CAS, ClamAV, quota, token access, audit, Restic/restore verification | Implemented |
-| 08 | Valkey/RabbitMQ/Celery | Compose dan Celery config | Baseline |
-| 09 | Transactional outbox | `shared.OutboxEvent`, `record_change` | Baseline |
-| 10 | Observability dan SLO | `deploy/observability`, architecture SLO | Baseline |
+| 08 | Valkey/RabbitMQ/Celery | queue policy bounded/DLQ, worker isolation, idempotent job/lease/cancel, `PR08_PR10_ACCEPTANCE.md` | Implemented |
+| 09 | Transactional outbox | standardized envelope, retry/dead publisher, inbox/cursor consumer, reconciliation | Implemented |
+| 10 | Observability dan SLO | OTLP app instrumentation, Collector/Prometheus/Loki/Tempo/Grafana, alerts/dashboard/redaction | Implemented |
 | 11 | Security baseline | middleware, Nginx, `SECURITY.md` | Baseline |
 | 12 | Identity/RBAC/scope | `identity.RoleAssignment`, permission service | Baseline |
 | 13 | Audit append-only | `shared.AuditEvent` dan integrity hash | Baseline |

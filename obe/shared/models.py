@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class TimeStampedModel(models.Model):
@@ -85,6 +86,17 @@ class AuditEvent(models.Model):
 
 
 class OutboxEvent(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PUBLISHING = "publishing", "Publishing"
+        PUBLISHED = "published", "Published"
+        DEAD = "dead", "Dead"
+
+    class Sensitivity(models.TextChoices):
+        PUBLIC = "public", "Public"
+        INTERNAL = "internal", "Internal"
+        CONFIDENTIAL = "confidential", "Confidential"
+
     event_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     event_type = models.CharField(max_length=160, db_index=True)
     aggregate_id = models.CharField(max_length=80, db_index=True)
@@ -94,12 +106,125 @@ class OutboxEvent(models.Model):
     correlation_id = models.UUIDField(default=uuid.uuid4, db_index=True)
     payload_schema = models.CharField(max_length=40, default="1.0")
     payload = models.JSONField(default=dict)
-    sensitivity = models.CharField(max_length=32, default="internal")
+    sensitivity = models.CharField(
+        max_length=32,
+        choices=Sensitivity.choices,
+        default=Sensitivity.INTERNAL,
+    )
+    consumers = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     published_at = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=160, blank=True)
 
     class Meta:
         ordering = ["occurred_at"]
+        indexes = [models.Index(fields=["status", "next_attempt_at", "occurred_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(aggregate_version__gte=1),
+                name="outbox_aggregate_version_gte_1",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(attempts__lte=100),
+                name="outbox_attempts_lte_100",
+            ),
+        ]
+
+
+class InboxEvent(models.Model):
+    class Status(models.TextChoices):
+        PROCESSING = "processing", "Processing"
+        PROCESSED = "processed", "Processed"
+        REJECTED = "rejected", "Rejected"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event_id = models.UUIDField()
+    consumer = models.CharField(max_length=80)
+    event_type = models.CharField(max_length=160)
+    aggregate_id = models.CharField(max_length=80)
+    aggregate_version = models.PositiveIntegerField()
+    payload_schema = models.CharField(max_length=40)
+    correlation_id = models.UUIDField(db_index=True)
+    status = models.CharField(max_length=16, choices=Status.choices)
+    detail = models.CharField(max_length=160, blank=True)
+    result_hash = models.CharField(max_length=64, blank=True)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["consumer", "event_id"], name="inbox_consumer_event_unique"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(aggregate_version__gte=1),
+                name="inbox_aggregate_version_gte_1",
+            ),
+        ]
+        indexes = [models.Index(fields=["consumer", "event_type", "aggregate_id"])]
+
+
+class ConsumerCursor(models.Model):
+    consumer = models.CharField(max_length=80)
+    event_type = models.CharField(max_length=160)
+    aggregate_id = models.CharField(max_length=80)
+    last_version = models.PositiveIntegerField(default=0)
+    last_event_id = models.UUIDField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["consumer", "event_type", "aggregate_id"],
+                name="consumer_cursor_unique",
+            )
+        ]
+
+
+class JobExecution(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task_name = models.CharField(max_length=180, db_index=True)
+    queue = models.CharField(max_length=40, db_index=True)
+    idempotency_key = models.CharField(max_length=160, unique=True)
+    correlation_id = models.UUIDField(default=uuid.uuid4, db_index=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
+    payload_hash = models.CharField(max_length=64)
+    result = models.JSONField(default=dict, blank=True)
+    result_hash = models.CharField(max_length=64, blank=True)
+    progress = models.PositiveSmallIntegerField(default=0)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    generation = models.PositiveIntegerField(default=1)
+    cancel_requested = models.BooleanField(default=False)
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(progress__gte=0, progress__lte=100),
+                name="job_progress_between_0_100",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(generation__gte=1),
+                name="job_generation_gte_1",
+            ),
+        ]
+        indexes = [models.Index(fields=["status", "lease_expires_at"])]
 
 
 class FeatureFlag(VersionedModel):

@@ -8,7 +8,8 @@ from typing import Any, TypeVar, cast
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, models, transaction
 
-from obe.shared.models import AuditEvent, OutboxEvent
+from obe.shared.events import DEFAULT_CONSUMERS, create_outbox_event
+from obe.shared.models import AuditEvent
 
 ModelT = TypeVar("ModelT", bound=models.Model)
 
@@ -37,6 +38,8 @@ def record_change(
     after: dict[str, Any] | None = None,
     reason: str = "",
     event_type: str | None = None,
+    aggregate_version: int = 1,
+    event_consumers: tuple[str, ...] = DEFAULT_CONSUMERS,
 ) -> AuditEvent:
     before, after = before or {}, after or {}
     with transaction.atomic():
@@ -57,12 +60,14 @@ def record_change(
             ),
         )
         if event_type:
-            OutboxEvent.objects.create(
+            create_outbox_event(
                 event_type=event_type,
                 aggregate_id=object_id,
+                aggregate_version=aggregate_version,
                 actor_id=actor.actor_id,
                 correlation_id=actor.correlation_id,
                 payload={"audit_id": str(audit.id), "after": after},
+                consumers=event_consumers,
             )
     return audit
 

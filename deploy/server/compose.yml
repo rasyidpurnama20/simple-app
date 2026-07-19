@@ -3,12 +3,12 @@ name: obe-server
 x-app: &app
   image: "${OBE_IMAGE:?Set immutable image@sha256 digest}"
   env_file: "${OBE_ENV_FILE:-../env/production.env}"
-  secrets: [database_url, obe_secret_key, litellm_api_key]
+  secrets: [database_url, obe_secret_key, litellm_api_key, rabbitmq_url]
   volumes:
     - "${OBE_DATA_ROOT:-/srv/obe}/evidence:/app/var/evidence"
     - "${OBE_DATA_ROOT:-/srv/obe}/uploads:/app/var/uploads"
     - "${OBE_DATA_ROOT:-/srv/obe}/config:/run/obe-config:ro"
-  networks: [application, data]
+  networks: [application, data, telemetry]
   read_only: true
   tmpfs: [/tmp]
   restart: unless-stopped
@@ -16,6 +16,20 @@ x-app: &app
     resources:
       limits: {cpus: "2.0", memory: 2G}
       reservations: {memory: 512M}
+
+x-worker: &worker
+  <<: *app
+  depends_on:
+    database: {condition: service_healthy}
+    valkey: {condition: service_healthy}
+    rabbitmq: {condition: service_healthy}
+    migrate: {condition: service_completed_successfully}
+  healthcheck:
+    test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$${HOSTNAME} --timeout 5"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+  stop_grace_period: 60s
 
 services:
   database:
@@ -41,7 +55,7 @@ services:
 
   valkey:
     image: "${VALKEY_IMAGE:?Set valkey image@sha256 digest}"
-    command: ["valkey-server", "--appendonly", "yes", "--maxmemory", "512mb"]
+    command: ["valkey-server", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lfu", "--tcp-keepalive", "60"]
     volumes: ["${OBE_DATA_ROOT:-/srv/obe}/cache:/data"]
     networks: [data]
     healthcheck:
@@ -59,7 +73,12 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: obe
       RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/rabbitmq_password
+      RABBITMQ_DEFAULT_VHOST: obe
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK_RELATIVE: "0.70"
+      RABBITMQ_DISK_FREE_LIMIT: 2GB
     secrets: [rabbitmq_password]
+    configs:
+      - {source: rabbitmq_plugins, target: /etc/rabbitmq/enabled_plugins}
     volumes: ["${OBE_DATA_ROOT:-/srv/obe}/queue:/var/lib/rabbitmq"]
     networks: [data]
     healthcheck:
@@ -112,19 +131,33 @@ services:
       retries: 8
       start_period: 20s
 
-  worker:
-    <<: *app
-    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "interactive,academic-critical,batch,maintenance"]
-    depends_on:
-      database: {condition: service_healthy}
-      valkey: {condition: service_healthy}
-      rabbitmq: {condition: service_healthy}
-      migrate: {condition: service_completed_successfully}
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$${HOSTNAME} --timeout 5"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+  worker-interactive:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "interactive,academic-critical", "--concurrency=4", "--prefetch-multiplier=1"]
+
+  worker-ai:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "ai", "--concurrency=2", "--prefetch-multiplier=1", "--max-tasks-per-child=50"]
+
+  worker-reports:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "reports", "--concurrency=2", "--prefetch-multiplier=1", "--max-tasks-per-child=25"]
+
+  worker-imports:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "imports", "--concurrency=1", "--prefetch-multiplier=1", "--max-tasks-per-child=10"]
+
+  worker-notifications:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "notifications", "--concurrency=4", "--prefetch-multiplier=1"]
+
+  worker-sync:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "sync", "--concurrency=2", "--prefetch-multiplier=1"]
+
+  worker-batch:
+    <<: *worker
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "batch,maintenance", "--concurrency=2", "--prefetch-multiplier=1", "--max-tasks-per-child=25"]
 
   beat:
     <<: *app
@@ -160,11 +193,14 @@ secrets:
   obe_secret_key: {file: "${OBE_SECRET_DIR:?Set secret directory}/obe_secret_key"}
   litellm_api_key: {file: "${OBE_SECRET_DIR:?Set secret directory}/litellm_api_key"}
   rabbitmq_password: {file: "${OBE_SECRET_DIR:?Set secret directory}/rabbitmq_password"}
+  rabbitmq_url: {file: "${OBE_SECRET_DIR:?Set secret directory}/rabbitmq_url"}
 
 configs:
   nginx_config: {file: ./nginx.conf}
+  rabbitmq_plugins: {file: ./rabbitmq_enabled_plugins}
 
 networks:
   public: {}
   application: {internal: true}
-  data: {internal: true}
+  data: {name: obe-data, internal: true}
+  telemetry: {name: obe-telemetry, internal: true}

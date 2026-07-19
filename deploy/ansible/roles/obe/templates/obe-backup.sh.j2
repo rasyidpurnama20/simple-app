@@ -10,3 +10,4 @@ mv "$temporary" "$final"
 trap - EXIT
 restic backup "$final" "{{ obe_data_root }}/evidence" "{{ obe_data_root }}/queue" "{{ obe_data_root }}/observability" "{{ obe_data_root }}/config" --tag obe
 restic check --read-data-subset=5%%
+touch "{{ obe_data_root }}/config/backup-success.timestamp"

@@ -81,6 +81,8 @@ Profil `local`, `test`, `staging`, `production`, dan `exam-edge` terpisah serta 
 
 Deployment production memakai compose terpisah dengan image digest immutable dan Ansible. Lihat [runbook deployment](docs/DEPLOYMENT_RUNBOOK.md); operasi sehari-hari tersedia melalui `python -m scripts.obe_ops`.
 
+Pekerjaan asinkron memakai antrean bounded dan worker terisolasi; perubahan domain diteruskan melalui outbox/inbox idempoten dan ditelusuri menggunakan correlation ID. Lihat [runbook antrean](docs/QUEUE_RUNBOOK.md), [domain event](docs/EVENTS_RUNBOOK.md), dan [observability](docs/OBSERVABILITY_RUNBOOK.md).
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -142,7 +144,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 70 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 85 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence.
 
 ## Dokumentasi
 
@@ -154,12 +156,16 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Deployment reproducible](docs/DEPLOYMENT_RUNBOOK.md)
 - [PostgreSQL dan concurrency](docs/DATABASE_RUNBOOK.md)
 - [Evidence immutable](docs/EVIDENCE_RUNBOOK.md)
+- [Valkey, RabbitMQ, dan worker Celery](docs/QUEUE_RUNBOOK.md)
+- [Transactional outbox dan domain event](docs/EVENTS_RUNBOOK.md)
+- [OpenTelemetry, dashboard, SLO, dan alert](docs/OBSERVABILITY_RUNBOOK.md)
 - [Traceability PR-01–PR-88](docs/TRACEABILITY.md)
 - [Status implementasi dan release gate](docs/IMPLEMENTATION_STATUS.md)
 - [Tata kelola CI dan branch](docs/CI_GOVERNANCE.md)
 - [Audit penerimaan PR-01–PR-03](docs/PR01_PR03_ACCEPTANCE.md)
 - [Audit penerimaan PR-04](docs/PR04_ACCEPTANCE.md)
 - [Audit penerimaan PR-05–PR-07](docs/PR05_PR07_ACCEPTANCE.md)
+- [Audit penerimaan PR-08–PR-10](docs/PR08_PR10_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

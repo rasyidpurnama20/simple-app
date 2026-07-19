@@ -1,0 +1,43 @@
+groups:
+  - name: obe-slo
+    rules:
+      - alert: OBECoreReadP95Breached
+        expr: histogram_quantile(0.95, sum by (le) (rate(obe_obe_http_duration_seconds_bucket{http_route=~"readyz/|api/.*"}[5m]))) > 2.5
+        for: 10m
+        labels: {severity: warning, runbook: core-read-latency}
+        annotations: {summary: "Core read p95 melebihi 2,5 detik"}
+      - alert: OBEErrorRatioBreached
+        expr: sum(rate(obe_obe_http_requests_total{http_status_code=~"5.."}[5m])) / clamp_min(sum(rate(obe_obe_http_requests_total[5m])), 1) > 0.01
+        for: 5m
+        labels: {severity: critical, runbook: application-errors}
+        annotations: {summary: "Error ratio melebihi 1%"}
+      - alert: OBEDiskUsageHigh
+        expr: 1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) > 0.80
+        for: 10m
+        labels: {severity: warning, runbook: disk-capacity}
+        annotations: {summary: "Disk usage melewati 80%"}
+      - alert: OBEQueueSaturated
+        expr: rabbitmq_queue_messages_ready / clamp_min(rabbitmq_queue_messages_ready + rabbitmq_queue_messages_unacked, 1) > 0.80
+        for: 5m
+        labels: {severity: critical, runbook: queue-saturation}
+        annotations: {summary: "Antrean RabbitMQ mendekati kapasitas"}
+      - alert: OBEDBPoolExhausted
+        expr: obe_obe_db_pool_in_use / clamp_min(obe_obe_db_pool_limit, 1) > 0.90
+        for: 5m
+        labels: {severity: critical, runbook: db-pool}
+        annotations: {summary: "DB pool di atas 90%"}
+      - alert: OBEBackupFailed
+        expr: time() - obe_obe_backup_last_success_timestamp_seconds > 90000
+        for: 15m
+        labels: {severity: critical, runbook: backup-failed}
+        annotations: {summary: "Backup terakhir lebih dari 25 jam"}
+      - alert: OBEAICircuitOpen
+        expr: obe_obe_ai_circuit_open > 0
+        for: 5m
+        labels: {severity: warning, runbook: ai-circuit}
+        annotations: {summary: "AI circuit breaker terbuka"}
+      - alert: OBEExamEdgeOffline
+        expr: time() - obe_obe_exam_edge_last_sync_timestamp_seconds > 300
+        for: 5m
+        labels: {severity: critical, runbook: exam-edge-offline}
+        annotations: {summary: "Exam Edge tidak sinkron lebih dari lima menit"}

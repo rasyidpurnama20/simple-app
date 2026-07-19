@@ -37,3 +37,5 @@ Detail preflight, provisioning, maintenance, dan seluruh command tersedia di [ru
 ## Insiden
 
 P1/P2 mengaktifkan on-call dan communication plan. Catat correlation ID, dampak, timeline, mitigasi, dan postmortem tanpa menyalahkan individu. AI, export, integration write, notification, analytics berat, dan Secure Exam sync memiliki kill switch terpisah.
+
+Operasi asinkron dan telemetry tersedia di [Queue Runbook](QUEUE_RUNBOOK.md), [Events Runbook](EVENTS_RUNBOOK.md), serta [Observability Runbook](OBSERVABILITY_RUNBOOK.md).

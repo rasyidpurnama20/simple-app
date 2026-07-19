@@ -8,6 +8,15 @@ from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
 
+from obe.shared.telemetry import (
+    record_http,
+    record_query,
+    reset_correlation_id,
+    safe_attributes,
+    set_correlation_id,
+    span,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,6 +49,10 @@ class QueryCounter:
             return execute(sql, params, many, context)
         finally:
             duration_ms = (time.monotonic() - started) * 1000
+            record_query(
+                duration=duration_ms / 1_000,
+                slow=duration_ms >= settings.OBE_SLOW_QUERY_MS,
+            )
             if duration_ms >= settings.OBE_SLOW_QUERY_MS:
                 normalized = " ".join(sql.split()).encode()
                 logger.warning(
@@ -78,9 +91,36 @@ class CorrelationIdMiddleware:
             request.correlation_id = uuid.UUID(raw) if raw else uuid.uuid4()
         except ValueError:
             request.correlation_id = uuid.uuid4()
-        response = self.get_response(request)
-        response["X-Correlation-ID"] = str(request.correlation_id)
-        return response
+        token = set_correlation_id(request.correlation_id)
+        started = time.monotonic()
+        status = 500
+        route = "unresolved"
+        try:
+            with span(
+                "obe.http.request",
+                {
+                    "http.method": request.method,
+                    "correlation_id": str(request.correlation_id),
+                },
+            ) as current_span:
+                response = self.get_response(request)
+                status = response.status_code
+                resolver_match = getattr(request, "resolver_match", None)
+                route = getattr(resolver_match, "route", None) or "unresolved"
+                if current_span is not None:
+                    current_span.set_attributes(
+                        safe_attributes({"http.route": route, "http.status_code": status})
+                    )
+                response["X-Correlation-ID"] = str(request.correlation_id)
+                return response
+        finally:
+            record_http(
+                route=route,
+                method=request.method,
+                status=status,
+                duration=max(0.0, time.monotonic() - started),
+            )
+            reset_correlation_id(token)
 
 
 class SecurityHeadersMiddleware:

@@ -18,6 +18,7 @@ from obe.evidence.models import EvidenceRecord
 from obe.identity.services import can
 from obe.shared.models import FileManifest
 from obe.shared.services import ActorContext, record_change
+from obe.shared.telemetry import record_file_access, span
 
 ALLOWED_MIME = {"application/pdf", "image/png", "image/jpeg", "text/csv"}
 MAX_SIZE = 25 * 1024 * 1024
@@ -158,22 +159,33 @@ def store(
             scanner_signature=scanner_signature,
             scanned_at=scanned_at,
         )
-        return EvidenceRecord.objects.create(
+        record = EvidenceRecord.objects.create(
             manifest=manifest,
             object_type=object_type,
             object_id=object_id,
         )
+        transaction.on_commit(
+            lambda: record_file_access(classification=classification, outcome="stored")
+        )
+        return record
     finally:
         staged.unlink(missing_ok=True)
 
 
 def verify_integrity(record: EvidenceRecord) -> bool:
-    root = Path(settings.EVIDENCE_ROOT).resolve()
-    target = (root / record.manifest.content_path).resolve()
-    if not target.is_relative_to(root) or not target.is_file():
-        return False
-    digest, size = _digest_file(target)
-    return digest == record.manifest.sha256 and size == record.manifest.size
+    with span("obe.evidence.verify", {"classification": record.manifest.classification}):
+        root = Path(settings.EVIDENCE_ROOT).resolve()
+        target = (root / record.manifest.content_path).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
+            record_file_access(classification=record.manifest.classification, outcome="missing")
+            return False
+        digest, size = _digest_file(target)
+        valid = digest == record.manifest.sha256 and size == record.manifest.size
+        record_file_access(
+            classification=record.manifest.classification,
+            outcome="verified" if valid else "tamper",
+        )
+        return valid
 
 
 @transaction.atomic
@@ -243,6 +255,7 @@ def resolve_download(token: str, user, *, max_age: int | None = None) -> Evidenc
 
 
 def _audit_access(record: EvidenceRecord, user, outcome: str) -> None:
+    record_file_access(classification=record.manifest.classification, outcome=outcome)
     record_change(
         actor=ActorContext(
             str(getattr(user, "pk", "")), getattr(user, "get_username", lambda: "")()
