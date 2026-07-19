@@ -2,23 +2,22 @@ from pathlib import Path
 
 import environ
 
+from config.settings.runtime import requested_profile, secret_value, secret_values
+from obe.shared.redaction import register_sensitive_values
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 env = environ.Env(
     OBE_DEBUG=(bool, False),
     OBE_AI_ENABLED=(bool, False),
 )
-environ.Env.read_env(BASE_DIR / ".env")
-
-
-def secret_value(name: str, default: str = "") -> str:
-    secret_file = env(f"{name}_FILE", default="")
-    if secret_file:
-        return Path(secret_file).read_text(encoding="utf-8").strip()
-    return env(name, default=default)
+_REQUESTED_PROFILE = requested_profile()
+if _REQUESTED_PROFILE == "local":
+    environ.Env.read_env(BASE_DIR / ".env")
 
 
 SECRET_KEY = secret_value("OBE_SECRET_KEY", "unsafe-local-only")
-OBE_ENV = env("OBE_ENV", default="production")
+SECRET_KEY_FALLBACKS = secret_values("OBE_SECRET_KEY_FALLBACKS")
+OBE_ENV = requested_profile()
 DEBUG = env.bool("OBE_DEBUG")
 ALLOWED_HOSTS = env.list("OBE_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 TIME_ZONE = env("OBE_TIME_ZONE", default="Asia/Jakarta")
@@ -149,17 +148,44 @@ OBE_AI_ENABLED = env.bool("OBE_AI_ENABLED")
 LITELLM_URL = env("LITELLM_URL", default="http://litellm:4000")
 LITELLM_API_KEY = secret_value("LITELLM_API_KEY")
 OBE_EXAM_SIGNING_KEY = secret_value("OBE_EXAM_SIGNING_KEY")
+OBE_EXAM_SIGNING_KEY_FALLBACKS = secret_values("OBE_EXAM_SIGNING_KEY_FALLBACKS")
+OBE_EXAM_SYNC_TOKEN = secret_value("OBE_EXAM_SYNC_TOKEN")
 OBE_RELEASE = env("OBE_RELEASE", default="dev")
+
+register_sensitive_values(
+    [
+        SECRET_KEY,
+        *SECRET_KEY_FALLBACKS,
+        LITELLM_API_KEY,
+        OBE_EXAM_SIGNING_KEY,
+        *OBE_EXAM_SIGNING_KEY_FALLBACKS,
+        OBE_EXAM_SYNC_TOKEN,
+        str(DATABASES["default"].get("PASSWORD", "")),
+    ]
+)
+
+DEFAULT_EXCEPTION_REPORTER_FILTER = "obe.shared.redaction.OBEExceptionReporterFilter"
+CELERY_TASK_SEND_SENT_EVENT = False
+CELERY_WORKER_SEND_TASK_EVENTS = False
+CELERY_TASK_EAGER_PROPAGATES = True
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {"redact_secrets": {"()": "obe.shared.redaction.SecretRedactionFilter"}},
     "formatters": {
         "json": {
+            "()": "obe.shared.redaction.RedactingFormatter",
             "format": '{{"level":"{levelname}","time":"{asctime}","logger":"{name}","message":"{message}"}}',
             "style": "{",
         }
     },
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json"}},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "filters": ["redact_secrets"],
+        }
+    },
     "root": {"handlers": ["console"], "level": "INFO"},
 }

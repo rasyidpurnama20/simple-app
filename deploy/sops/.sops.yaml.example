@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: '.*\.enc\.ya?ml$'
+    encrypted_regex: '^(data|stringData|database_url|django_secret_key|litellm_api_key|exam_signing_key|exam_sync_token)$'
+    age: 'age1replace-with-authorized-operator-public-recipient'

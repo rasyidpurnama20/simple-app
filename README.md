@@ -71,6 +71,14 @@ python manage.py runserver
 
 SQLite dipakai otomatis untuk pengembangan cepat; PostgreSQL tetap menjadi sumber kebenaran pada deployment Compose.
 
+## Lingkungan dan secret
+
+Profil `local`, `test`, `staging`, `production`, dan `exam-edge` terpisah serta divalidasi saat startup. Deployment terkelola menggunakan SOPS dan file runtime `*_FILE`; plaintext secret tidak disimpan di repositori.
+
+- Mulai dari template di [`deploy/env`](deploy/env/).
+- Ikuti [runbook secret dan rotasi](docs/SECRETS_RUNBOOK.md).
+- Audit pemenuhan PR-04 tersedia di [penerimaan PR-04](docs/PR04_ACCEPTANCE.md).
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -85,7 +93,7 @@ Fungsi DPA, koordinator, pembimbing, penguji, mentor, dan TPMF dijalankan sebaga
 ## Struktur singkat
 
 ```text
-config/                     konfigurasi local/test/production/exam-edge
+config/                     konfigurasi local/test/staging/production/exam-edge
 obe/
   shared/                   audit, outbox, feature flag, rules, file manifest
   identity/                 RBAC dan scoped assignment
@@ -140,10 +148,12 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Kontrak API](docs/API.md)
 - [Operasi, backup, dan restore](docs/OPERATIONS.md)
 - [Keamanan](docs/SECURITY.md)
+- [Lingkungan, SOPS, rotasi, dan revokasi secret](docs/SECRETS_RUNBOOK.md)
 - [Traceability PR-01–PR-88](docs/TRACEABILITY.md)
 - [Status implementasi dan release gate](docs/IMPLEMENTATION_STATUS.md)
 - [Tata kelola CI dan branch](docs/CI_GOVERNANCE.md)
 - [Audit penerimaan PR-01–PR-03](docs/PR01_PR03_ACCEPTANCE.md)
+- [Audit penerimaan PR-04](docs/PR04_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

@@ -14,11 +14,18 @@ services:
     image: "${OBE_IMAGE:?Set OBE_IMAGE to an immutable image digest}"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.exam_edge
+      OBE_ENV: exam-edge
       DATABASE_URL_FILE: /run/secrets/edge_database_url
       OBE_SECRET_KEY_FILE: /run/secrets/edge_secret_key
       OBE_EXAM_SIGNING_KEY_FILE: /run/secrets/edge_signing_key
+      OBE_EXAM_SYNC_TOKEN_FILE: /run/secrets/edge_sync_token
+      CELERY_BROKER_URL: memory://
+      OBE_SECRET_KEY_ROTATED_AT: "${OBE_SECRET_KEY_ROTATED_AT:?Set rotation timestamp}"
+      DATABASE_PASSWORD_ROTATED_AT: "${DATABASE_PASSWORD_ROTATED_AT:?Set rotation timestamp}"
+      OBE_EXAM_SIGNING_KEY_ROTATED_AT: "${OBE_EXAM_SIGNING_KEY_ROTATED_AT:?Set rotation timestamp}"
+      OBE_EXAM_SYNC_TOKEN_ROTATED_AT: "${OBE_EXAM_SYNC_TOKEN_ROTATED_AT:?Set rotation timestamp}"
       OBE_AI_ENABLED: "0"
-    secrets: [edge_database_url, edge_secret_key, edge_signing_key]
+    secrets: [edge_database_url, edge_secret_key, edge_signing_key, edge_sync_token]
     volumes: ["edge-responses:/app/var/exam"]
     networks: [edge-internal, exam-vlan]
     depends_on: [edge-db]
@@ -30,11 +37,18 @@ services:
     command: ["python", "manage.py", "edge_sync"]
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.exam_edge
+      OBE_ENV: exam-edge
       DATABASE_URL_FILE: /run/secrets/edge_database_url
       OBE_SECRET_KEY_FILE: /run/secrets/edge_secret_key
       OBE_EXAM_SIGNING_KEY_FILE: /run/secrets/edge_signing_key
+      OBE_EXAM_SYNC_TOKEN_FILE: /run/secrets/edge_sync_token
+      CELERY_BROKER_URL: memory://
+      OBE_SECRET_KEY_ROTATED_AT: "${OBE_SECRET_KEY_ROTATED_AT:?Set rotation timestamp}"
+      DATABASE_PASSWORD_ROTATED_AT: "${DATABASE_PASSWORD_ROTATED_AT:?Set rotation timestamp}"
+      OBE_EXAM_SIGNING_KEY_ROTATED_AT: "${OBE_EXAM_SIGNING_KEY_ROTATED_AT:?Set rotation timestamp}"
+      OBE_EXAM_SYNC_TOKEN_ROTATED_AT: "${OBE_EXAM_SYNC_TOKEN_ROTATED_AT:?Set rotation timestamp}"
       OBE_AI_ENABLED: "0"
-    secrets: [edge_database_url, edge_secret_key, edge_signing_key]
+    secrets: [edge_database_url, edge_secret_key, edge_signing_key, edge_sync_token]
     networks: [edge-internal]
     restart: "no"
 secrets:
@@ -42,6 +56,7 @@ secrets:
   edge_database_url: {file: ./secrets/edge_database_url}
   edge_secret_key: {file: ./secrets/edge_secret_key}
   edge_signing_key: {file: ./secrets/edge_signing_key}
+  edge_sync_token: {file: ./secrets/edge_sync_token}
 networks:
   edge-internal: {internal: true}
   exam-vlan: {internal: true}
