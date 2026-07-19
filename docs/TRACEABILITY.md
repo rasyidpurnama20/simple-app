@@ -28,11 +28,11 @@
 | 22 | 77 courses dan semester map | metadata, progress/equivalence, gate tepat 126+18/144; sumber 129 SKS tetap blocking | Implemented |
 | 23 | 31 CPMK | metadata/version/target dan pemetaan eksplisit; gap sumber dilaporkan | Implemented |
 | 24 | Weighted traceability | graph dua arah, bobot 100±0,01, human approval, orphan/cycle/cross-version gate | Implemented |
-| 25 | Versioned RPS approval | `learning.RPSVersion`, publish service | Baseline |
-| 26 | CPMK-RPS/Sub-CPMK/indicator | versioned RPS semantic content | Baseline |
-| 27 | Weekly plan | `learning.WeeklyPlan` minggu 1–16 | Baseline |
-| 28 | Assessment blueprint | `AssessmentInstrument.mappings/rubric` | Baseline |
-| 29 | Rubric/item/grading | assessment schema dan grading service | Baseline |
+| 25 | Versioned RPS approval | checksum lifecycle, field comment, stale guard, immutable snapshot, clone/diff, `PR25_PR29_ACCEPTANCE.md` | Implemented |
+| 26 | CPMK-RPS/Sub-CPMK/indicator | model terpisah, mapping CPL/CPMK program, generator/clone, bobot/observable validation | Implemented |
+| 27 | Weekly plan | 16 minggu, UTS/UAS, metode/waktu, reschedule/realisasi, planned-vs-actual | Implemented |
+| 28 | Assessment blueprint | instrumen versioned, mapping, blueprint, evidence dan publish-before-teaching gate | Implemented |
+| 29 | Rubric/item/grading | rubrik/kriteria/level/butir, controlled key, second marker, moderation dan versioned regrade | Implemented |
 | 30 | Parallel class/exam | `CourseOffering.parallel_group` | Baseline |
 | 31 | Grade normalization | score model dan boundary-tested rules | Baseline |
 | 32 | Attendance eligibility | attendance service, boundary 75% | Baseline |

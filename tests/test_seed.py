@@ -6,9 +6,17 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
 from obe.academic_lifecycle.models import AcademicResult, StudentProfile, TaskInstance
-from obe.assessment.models import AttainmentSnapshot
+from obe.assessment.models import AssessmentInstrument, AttainmentSnapshot, Rubric
 from obe.curriculum.models import Course, CurriculumEdge, CurriculumVersion, Outcome
 from obe.curriculum.services import allocation_report, catalog_report, traceability_report
+from obe.learning.models import (
+    CourseOutcome,
+    PerformanceIndicator,
+    RPSVersion,
+    SubOutcome,
+    WeeklyPlan,
+)
+from obe.learning.services import validate_rps
 
 
 @pytest.mark.django_db
@@ -91,3 +99,12 @@ def test_seed_is_idempotent_and_complete(monkeypatch):
     assert TaskInstance.objects.count() == 4
     mahasiswa = get_user_model().objects.get(username="mahasiswa")
     assert mahasiswa.studentprofile.results.exists()
+    rps = RPSVersion.objects.get(public_id="17237222-a7e1-5fa0-a42d-575473157ba6")
+    assert rps.status == "draft" and rps.content["source_status"] == "published-demo"
+    assert CourseOutcome.objects.filter(rps=rps).count() == 1
+    assert SubOutcome.objects.filter(rps=rps).count() == 3
+    assert PerformanceIndicator.objects.filter(rps=rps).count() == 3
+    assert WeeklyPlan.objects.filter(rps=rps).count() == 16
+    assert AssessmentInstrument.objects.filter(rps_public_id=rps.public_id).count() == 6
+    assert Rubric.objects.filter(status="published").count() == 2
+    assert validate_rps(rps)["valid"]

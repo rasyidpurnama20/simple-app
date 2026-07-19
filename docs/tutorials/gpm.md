@@ -40,8 +40,18 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 4. Untuk dataset demo, verifikasi blocker 129 SKS wajib serta CPMK22/CPMK27 tanpa inbound mapping. Finding tersebut adalah bukti validator bekerja, bukan alasan mengarang relasi.
 5. Reviewer tidak boleh merangkap maker, approver, atau activator. Ikuti [runbook kurikulum](../CURRICULUM_RUNBOOK.md) untuk rehearsal dan rollback.
 
+## Review RPS dan blueprint asesmen
+
+1. Buka RPS berstatus `gpm_review`; cocokkan offering, semester, koordinator, dan curriculum version.
+2. Periksa pemetaan CPMK-RPS→CPMK program/CPL, bobot CPMK-RPS/Sub-CPMK 100%, indikator observable, serta ketercakupan indikator oleh asesmen.
+3. Periksa 16 minggu, UTS/UAS, metode dan waktu. Praktik harus terintegrasi, bukan membuat minggu ke-17.
+4. Periksa blueprint instrumen: outcome, difficulty, form, waktu, coverage, evidence, dan total bobot 100%. Pastikan instrumen direncanakan published sebelum teaching starts.
+5. Jika ada masalah, beri komentar pada field spesifik lalu **Kembalikan**. Jika valid, lanjutkan ke approval Prodi. Checksum akan mencegah approval stale ketika Pengampu mengubah payload sesudah review.
+6. Selama semester, bandingkan planned-vs-actual. Deviasi harus memiliki alasan dan evidence; lakukan verifikasi sesuai assignment mutu.
+
 ## Hasil yang diharapkan
 
 - GPM dapat membedakan agregat program dan mata kuliah.
 - Temuan 129 SKS diperlakukan sebagai isu review, bukan dikoreksi otomatis.
 - Data personal mahasiswa tidak digunakan pada laporan program.
+- GPM dapat menunjukkan reason code dan field path setiap pengembalian RPS.

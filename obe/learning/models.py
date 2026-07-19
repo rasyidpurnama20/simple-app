@@ -1,12 +1,16 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from obe.shared.models import VersionedModel
 
 
 class CourseOffering(VersionedModel):
     course_public_id = models.UUIDField(db_index=True)
+    curriculum_version_public_id = models.UUIDField(null=True, blank=True, db_index=True)
     academic_year = models.CharField(max_length=12)
     semester = models.CharField(max_length=12)
     class_code = models.CharField(max_length=20)
@@ -19,6 +23,21 @@ class CourseOffering(VersionedModel):
     room = models.CharField(max_length=80, blank=True)
     capacity = models.PositiveIntegerField(default=40)
     status = models.CharField(max_length=20, default="draft")
+    delivery_mode = models.CharField(
+        max_length=16,
+        choices=[("regular", "Regular"), ("short", "Short semester")],
+        default="regular",
+    )
+    calendar_configuration = models.JSONField(default=dict, blank=True)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.starts_on and self.ends_on and self.ends_on < self.starts_on:
+            raise ValidationError("Tanggal akhir penawaran tidak boleh sebelum tanggal mulai")
+        if self.delivery_mode == "short" and not self.calendar_configuration:
+            raise ValidationError("Semester pendek wajib memiliki konfigurasi kalender terpisah")
 
     class Meta:
         constraints = [
@@ -62,8 +81,16 @@ class RPSVersion(VersionedModel):
     )
     approval_snapshot = models.JSONField(default=dict, blank=True)
     revision_reason = models.TextField(blank=True)
+    returned_comment = models.TextField(blank=True)
+    content_checksum = models.CharField(max_length=64, blank=True, db_index=True)
+    reviewed_checksum = models.CharField(max_length=64, blank=True)
+    approved_checksum = models.CharField(max_length=64, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
+        super().clean()
         if self.status == self.Status.PUBLISHED:
             if self.total_assessment_weight != 100:
                 raise ValidationError("Total bobot asesmen harus tepat 100%")
@@ -71,6 +98,17 @@ class RPSVersion(VersionedModel):
                 raise ValidationError("Review GPM dan approval Prodi wajib")
             if self.authored_by_id in {self.reviewed_by_id, self.approved_by_id}:
                 raise ValidationError("Self-approval tidak diizinkan")
+            if not self.approved_checksum or self.approved_checksum != self.content_checksum:
+                raise ValidationError("Approval stale; konten RPS berubah setelah persetujuan")
+            if not self.published_at:
+                raise ValidationError("Waktu publikasi wajib tersedia")
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values("status").first()
+            if previous and previous["status"] == self.Status.PUBLISHED:
+                raise ValidationError("RPS published immutable; buat versi baru untuk perubahan")
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -78,6 +116,136 @@ class RPSVersion(VersionedModel):
                 fields=["offering", "version"], name="rps_offering_version_unique"
             )
         ]
+
+
+class CourseOutcome(VersionedModel):
+    rps = models.ForeignKey(RPSVersion, on_delete=models.PROTECT, related_name="course_outcomes")
+    code = models.CharField(max_length=24)
+    description = models.TextField()
+    bloom_level = models.CharField(max_length=32)
+    target = models.DecimalField(max_digits=6, decimal_places=2, default=75)
+    weight = models.DecimalField(max_digits=6, decimal_places=2)
+    order = models.PositiveSmallIntegerField(default=1)
+    program_cpmk_ids = models.JSONField(default=list)
+    cpl_ids = models.JSONField(default=list)
+    status = models.CharField(max_length=20, default="active")
+
+    def clean(self):
+        super().clean()
+        if not self.code.strip() or not self.description.strip():
+            raise ValidationError("Kode dan deskripsi CPMK-RPS wajib")
+        if not Decimal("0") < self.weight <= Decimal("100"):
+            raise ValidationError("Bobot CPMK-RPS harus >0 dan <=100")
+        if not self.program_cpmk_ids or not self.cpl_ids:
+            raise ValidationError("CPMK-RPS wajib terhubung ke CPMK program dan CPL")
+
+    def save(self, *args, **kwargs):
+        if (
+            self.rps_id
+            and RPSVersion.objects.filter(
+                pk=self.rps_id, status=RPSVersion.Status.PUBLISHED
+            ).exists()
+        ):
+            raise ValidationError("Desain RPS published immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["rps", "code"], name="rps_course_outcome_code_unique")
+        ]
+
+
+class SubOutcome(VersionedModel):
+    rps = models.ForeignKey(RPSVersion, on_delete=models.PROTECT, related_name="sub_outcomes")
+    course_outcome = models.ForeignKey(
+        CourseOutcome, on_delete=models.PROTECT, related_name="sub_outcomes"
+    )
+    code = models.CharField(max_length=32)
+    description = models.TextField()
+    bloom_level = models.CharField(max_length=32)
+    target = models.DecimalField(max_digits=6, decimal_places=2, default=75)
+    weight = models.DecimalField(max_digits=6, decimal_places=2)
+    order = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=20, default="active")
+
+    def clean(self):
+        super().clean()
+        if self.course_outcome_id and self.rps_id != self.course_outcome.rps_id:
+            raise ValidationError("Sub-CPMK dan CPMK-RPS harus berada pada RPS yang sama")
+        if not self.code.strip() or not self.description.strip():
+            raise ValidationError("Kode dan deskripsi Sub-CPMK wajib")
+        if not Decimal("0") < self.weight <= Decimal("100"):
+            raise ValidationError("Bobot Sub-CPMK harus >0 dan <=100")
+
+    def save(self, *args, **kwargs):
+        if (
+            self.rps_id
+            and RPSVersion.objects.filter(
+                pk=self.rps_id, status=RPSVersion.Status.PUBLISHED
+            ).exists()
+        ):
+            raise ValidationError("Desain RPS published immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["rps", "code"], name="rps_sub_outcome_code_unique")
+        ]
+
+
+class PerformanceIndicator(VersionedModel):
+    rps = models.ForeignKey(RPSVersion, on_delete=models.PROTECT, related_name="indicators")
+    sub_outcome = models.ForeignKey(SubOutcome, on_delete=models.PROTECT, related_name="indicators")
+    code = models.CharField(max_length=40)
+    description = models.TextField()
+    measurement = models.CharField(max_length=80, default="normalized-score-0-100")
+    target = models.DecimalField(max_digits=6, decimal_places=2, default=75)
+    observable = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=20, default="active")
+
+    def clean(self):
+        super().clean()
+        if self.sub_outcome_id and self.rps_id != self.sub_outcome.rps_id:
+            raise ValidationError("Indikator dan Sub-CPMK harus berada pada RPS yang sama")
+        if not self.code.strip() or not self.description.strip() or not self.observable:
+            raise ValidationError("Indikator wajib berkode, terukur, dan observable")
+
+    def save(self, *args, **kwargs):
+        if (
+            self.rps_id
+            and RPSVersion.objects.filter(
+                pk=self.rps_id, status=RPSVersion.Status.PUBLISHED
+            ).exists()
+        ):
+            raise ValidationError("Desain RPS published immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["rps", "code"], name="rps_indicator_code_unique")
+        ]
+
+
+class RPSFieldComment(models.Model):
+    rps = models.ForeignKey(RPSVersion, on_delete=models.PROTECT, related_name="field_comments")
+    field_path = models.CharField(max_length=160)
+    comment = models.TextField()
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rps_comments_resolved",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def resolve(self, user):
+        self.resolved_at = timezone.now()
+        self.resolved_by = user
+        self.save(update_fields=["resolved_at", "resolved_by"])
 
 
 class WeeklyPlan(VersionedModel):
@@ -89,15 +257,63 @@ class WeeklyPlan(VersionedModel):
     material = models.TextField()
     methods = models.JSONField(default=list)
     activities = models.JSONField(default=list)
+    assignment = models.JSONField(default=dict, blank=True)
     contact_minutes = models.PositiveIntegerField(default=100)
     structured_minutes = models.PositiveIntegerField(default=120)
     independent_minutes = models.PositiveIntegerField(default=120)
     planned_date = models.DateField(null=True, blank=True)
     actual = models.JSONField(default=dict, blank=True)
+    rescheduled_from = models.DateField(null=True, blank=True)
+    reschedule_reason = models.TextField(blank=True)
+    rescheduled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="weekly_plans_rescheduled",
+    )
+    execution_recorded_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
+        super().clean()
         if not 1 <= self.week <= 16:
             raise ValidationError("Minggu reguler harus 1–16")
+        if self.meeting_type == "regular" and not self.methods:
+            raise ValidationError("Metode pembelajaran minggu reguler wajib")
+        if self.planned_date and self.rps.offering.starts_on and self.rps.offering.ends_on:
+            if not self.rps.offering.starts_on <= self.planned_date <= self.rps.offering.ends_on:
+                raise ValidationError("Tanggal pertemuan di luar periode semester")
+
+    def save(self, *args, **kwargs):
+        if (
+            self.pk
+            and self.rps_id
+            and RPSVersion.objects.filter(
+                pk=self.rps_id, status=RPSVersion.Status.PUBLISHED
+            ).exists()
+        ):
+            previous = type(self).objects.get(pk=self.pk)
+            update_fields = set(kwargs.get("update_fields") or ())
+            execution_fields = {
+                "actual",
+                "execution_recorded_at",
+                "planned_date",
+                "rescheduled_from",
+                "reschedule_reason",
+                "rescheduled_by",
+                "updated_at",
+            }
+            if not update_fields or update_fields - execution_fields:
+                raise ValidationError(
+                    "Desain minggu published immutable; catat realisasi/reschedule"
+                )
+            if previous.planned_date != self.planned_date and (
+                not self.reschedule_reason.strip() or not self.rescheduled_by_id
+            ):
+                raise ValidationError(
+                    "Perubahan tanggal published wajib alasan dan aktor reschedule"
+                )
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["rps", "week"], name="rps_week_unique")]

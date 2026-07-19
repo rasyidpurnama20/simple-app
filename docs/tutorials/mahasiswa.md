@@ -23,6 +23,14 @@ Mahasiswa melihat tugas dan riwayat akademiknya sendiri tanpa memperoleh akses k
 2. Cari **Periksa riwayat studi dan capaian pribadi**.
 3. Cocokkan hasil dengan halaman Kemajuan. Gunakan kanal akademik resmi bila memerlukan koreksi.
 
+## Ikuti asesmen dan baca feedback
+
+1. Buka instrumen yang tersedia untuk offering sendiri. Periksa tujuan, jadwal, mode, attempt limit, bobot, dan evidence yang wajib diunggah.
+2. Kirim response dan evidence sebelum batas waktu; simpan receipt/checksum submission. Kunci jawaban dan data peserta lain tidak tersedia pada payload mahasiswa.
+3. Setelah nilai published, baca skor, feedback per kriteria, rubrik version, dan status moderasi. Blind reference tidak mengungkap identitas marker.
+4. Bila terjadi regrade, sistem menampilkan nilai terbaru dengan jejak versi; nilai dan alasan sebelumnya tetap tersimpan untuk audit.
+5. Ajukan koreksi melalui kanal resmi bila response/evidence yang ditampilkan tidak sesuai receipt. Jangan membuat submission ganda di luar attempt yang diizinkan.
+
 ## Pahami keputusan dan ajukan banding
 
 1. Pada keputusan blocking milik sendiri, baca rule code/version, input yang digunakan, kondisi gagal, sumber data, dan langkah perbaikan. Mahasiswa tidak dapat membuka decision mahasiswa lain.
@@ -39,3 +47,4 @@ Dashboard dan katalog bersifat agregat/program. Mahasiswa boleh melihatnya sebag
 - Mahasiswa hanya melihat profil yang terikat pada akunnya.
 - Riwayat studi dan tugas tersedia setelah seed selesai.
 - Dashboard program tidak mengekspos identitas atau nilai individu.
+- Instrumen mahasiswa tidak pernah memuat controlled answer key.

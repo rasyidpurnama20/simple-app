@@ -42,6 +42,15 @@ Contoh teknis dan prosedur recovery tersedia di [runbook kurikulum](../CURRICULU
 
 Publication, attainment, eligibility, kelulusan, laporan mutu, dan official sync harus dihentikan bila record memiliki blocking issue yang belum `verified`. Status `resolved` atau `accepted-risk` belum cukup untuk membuka gate.
 
+## Setujui dan publikasikan RPS
+
+1. Buka RPS berstatus `prodi_approval`; pastikan review GPM tersedia dan aktornya berbeda dari Pengampu/Prodi approver.
+2. Periksa snapshot validasi: field wajib, mapping outcome, 16 minggu, blueprint, evidence, total asesmen 100%, dan seluruh komentar blocking sudah ditangani.
+3. Setujui hanya jika checksum payload sama dengan checksum review. Bila payload berubah, sistem menolak stale approval dan RPS harus direview ulang.
+4. Publish versi yang disetujui. Snapshot lengkap dan checksum disimpan untuk replay; versi tersebut immutable.
+5. Perubahan kebijakan/perkuliahan berikutnya dimulai dari clone versi baru dengan alasan revisi. Rollback dilakukan sebagai versi baru, bukan mengubah snapshot lama.
+6. Gunakan laporan rubrik dan second-marker untuk memantau konsistensi grading; regrade wajib menyimpan rubrik baru, alasan, nilai lama, dan audit.
+
 ## Kerjakan approval task
 
 1. Buka **Tugas Saya**.
@@ -57,3 +66,4 @@ Buka <http://localhost:8000/api/v1/analytics/semantic/?metric=attainment>. Respo
 - Prodi dapat menjelaskan mengapa kurikulum masih `review`.
 - Tidak ada aktivasi ketika total SKS wajib belum memenuhi gate.
 - Keputusan menggunakan agregat terverifikasi dan dapat ditelusuri ke dataset v5.
+- RPS official published selalu memiliki reviewer, approver, snapshot replayable, dan checksum yang sama.
