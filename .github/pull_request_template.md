@@ -17,6 +17,11 @@ Jelaskan RBAC/object scope, data class, audit, secret, upload, AI, atau Secure E
 
 Cantumkan unit/integration/contract/UAT, coverage, screenshot, benchmark, atau rehearsal evidence.
 
+- Test report:
+- Coverage kritis:
+- Migration plan:
+- SBOM/image digest:
+
 ## Feature flag dan rollout
 
 Sebutkan flag, state awal, target, owner, acceptance evidence, dan activation plan.
@@ -33,4 +38,5 @@ Jelaskan rollback aplikasi/migration, backward compatibility, rekonsiliasi, dan 
 - [ ] Aksi kritis memiliki audit dan negative permission test
 - [ ] AI-off tidak memblokir critical path
 - [ ] Dokumentasi dan traceability diperbarui
-
+- [ ] Minimal satu reviewer non-author menyetujui perubahan
+- [ ] Semua required status check hijau dan branch tidak memiliki bypass tanpa audit

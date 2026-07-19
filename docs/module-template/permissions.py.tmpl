@@ -1,0 +1,5 @@
+from obe.identity.services import can
+
+
+def may_view(user, scope_id: str) -> bool:
+    return can(user, "{{ module_name }}.view", scope_type="{{ module_name }}", scope_id=scope_id)
