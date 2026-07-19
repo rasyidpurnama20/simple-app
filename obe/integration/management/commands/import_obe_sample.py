@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from obe.identity.services import ensure_demo_assignments
 from obe.shared.academic_rules import sample_rule_registry
+from obe.shared.rules import grade_for
 
 EXPECTED_SCHEMA = "5.0.0"
 DEFAULT_FIXTURE = (
@@ -52,20 +53,22 @@ RECONCILIATION_COVERAGE = {
     "weekly_plans": "weekly_plans",
     "assessment_plans": "assessment_instruments",
     "rubrics": "rubrics",
-    "evidence_manifests": None,
-    "evidence_submissions": None,
-    "evidence_scores": None,
-    "decision_overrides": None,
-    "feature_flags": None,
-    "audit_events": None,
-    "quality_issues": None,
-    "provus_standards": None,
-    "provus_findings": None,
-    "ai_prompts": None,
-    "secure_exams": None,
-    "lifecycle_applications": None,
+    "evidence_manifests": "evidence_manifests",
+    "evidence_submissions": "evidence_submissions",
+    "evidence_scores": "evidence_scores",
+    "decision_overrides": "decision_overrides",
+    "feature_flags": "feature_flags",
+    "audit_events": "audit_events",
+    "quality_issues": "quality_issues",
+    "provus_standards": "provus_standards",
+    "provus_findings": "provus_findings",
+    "quality_cycles": "quality_cycles",
+    "ai_prompts": "ai_prompts",
+    "secure_exams": "secure_exams",
+    "lifecycle_applications": "lifecycle_applications",
+    "lifecycle_configurations": "lifecycle_configurations",
     "scoped_assignments": "scoped_assignments",
-    "integration_contracts": None,
+    "integration_contracts": "integration_contracts",
 }
 
 CANONICAL_CURRICULUM_VERSIONS = (
@@ -110,6 +113,13 @@ def stable_uuid(*parts: object) -> uuid.UUID:
 def parse_date(value):
     if isinstance(value, str):
         return date.fromisoformat(value)
+    return value or None
+
+
+def parse_datetime(value):
+    if isinstance(value, str):
+        parsed = datetime.fromisoformat(value)
+        return parsed if parsed.tzinfo else timezone.make_aware(parsed)
     return value or None
 
 
@@ -183,9 +193,11 @@ def source_inventory(dataset: dict) -> dict[str, int]:
         "quality_issues": len(dataset.get("quality", {}).get("issues", [])),
         "provus_standards": len(dataset.get("quality", {}).get("provusStandards", [])),
         "provus_findings": len(dataset.get("quality", {}).get("provusFindings", [])),
+        "quality_cycles": int(bool(dataset.get("quality", {}).get("ppeppCycle"))),
         "ai_prompts": len(dataset.get("ai", {}).get("promptRegistry", [])),
         "secure_exams": len(dataset.get("secureExam", {}).get("examDefinitions", [])),
         "lifecycle_applications": len(dataset.get("academicLifecycle", {}).get("applications", [])),
+        "lifecycle_configurations": int(bool(dataset.get("academicLifecycle"))),
         "scoped_assignments": len(dataset.get("identity", {}).get("scopedAssignments", [])),
         "integration_contracts": len(dataset.get("integration", {}).get("contracts", [])),
     }
@@ -386,6 +398,23 @@ class Importer:
                 ("lecturer", "identity", "LecturerProfile"),
                 ("assignment", "identity", "RoleAssignment"),
                 ("alias", "integration", "IdentifierAlias"),
+                ("integration_contract", "integration", "IntegrationContract"),
+                ("submission", "assessment", "Submission"),
+                ("score", "assessment", "Score"),
+                ("manifest", "shared", "FileManifest"),
+                ("evidence", "evidence", "EvidenceRecord"),
+                ("decision", "shared", "AcademicDecision"),
+                ("decision_override", "shared", "DecisionOverride"),
+                ("feature_flag", "shared", "FeatureFlag"),
+                ("audit", "shared", "AuditEvent"),
+                ("issue", "quality", "IntegrityIssue"),
+                ("quality_standard", "quality", "QualityStandard"),
+                ("quality_finding", "quality", "QualityFinding"),
+                ("quality_cycle", "quality", "QualityCycle"),
+                ("prompt", "ai", "PromptTemplate"),
+                ("exam", "secure_exam", "Exam"),
+                ("lifecycle_application", "academic_lifecycle", "LifecycleApplication"),
+                ("lifecycle_configuration", "academic_lifecycle", "LifecycleConfiguration"),
             )
         }
         self.users = ensure_demo_assignments()
@@ -408,6 +437,7 @@ class Importer:
             self.import_learning_assessment(current_curriculum, courses)
         self.import_attainment(courses)
         self.import_students(curricula, courses)
+        self.import_stage4_remaining()
         self.import_tasks(current_curriculum)
         return dict(self.counts)
 
@@ -915,6 +945,7 @@ class Importer:
             semester="odd",
             class_code="A",
             defaults={
+                "source_id": "OFF-2024-1-MIK1624101-A",
                 "public_id": uuid.UUID("6e014092-3290-57cb-9b40-b58dc88b97e2"),
                 "curriculum_version_public_id": curriculum.public_id,
                 "parallel_group": "PG-2024-1-MIK1624101",
@@ -932,6 +963,7 @@ class Importer:
             offering=offering,
             version=rps_data.get("version", 1),
             defaults={
+                "source_id": rps_data["id"],
                 "public_id": uuid.UUID(rps_data["uuid"]),
                 "status": "draft",
                 "content": {
@@ -1183,6 +1215,7 @@ class Importer:
                 code=row["instrumentCode"],
                 version=1,
                 defaults={
+                    "source_id": row["id"],
                     "public_id": uuid.UUID(row["uuid"]),
                     "rps_public_id": rps.public_id,
                     "title": row["name"],
@@ -1866,6 +1899,555 @@ class Importer:
                         },
                     )
                     self.counts["results"] += 1
+
+    def import_stage4_remaining(self) -> None:
+        """Import the remaining v5 demo registries without promoting demo state to official."""
+        self.import_stage4_evidence()
+        self.import_stage4_decision_overrides()
+        self.import_stage4_feature_flags()
+        self.import_stage4_quality()
+        self.import_stage4_ai()
+        self.import_stage4_secure_exam()
+        self.import_stage4_lifecycle()
+        self.import_stage4_integration()
+        self.import_stage4_audit()
+
+    def import_stage4_evidence(self) -> None:
+        evidence = self.dataset.get("evidence", {})
+        manifest_rows = evidence.get("manifests", [])
+        submission_rows = evidence.get("submissions", [])
+        score_rows = evidence.get("scoreRecords", [])
+        if not (manifest_rows or submission_rows or score_rows):
+            return
+        Manifest = self.models["manifest"]
+        Evidence = self.models["evidence"]
+        Submission = self.models["submission"]
+        Score = self.models["score"]
+        Instrument = self.models["instrument"]
+        Student = self.models["student"]
+
+        submission_by_manifest = {
+            manifest_id: row
+            for row in submission_rows
+            for manifest_id in row.get("evidenceManifestIds", [])
+        }
+        manifest_map = {}
+        for row in manifest_rows:
+            source_id = row["id"]
+            linked_submission = submission_by_manifest.get(source_id)
+            object_id = linked_submission["id"] if linked_submission else source_id
+            manifest = Manifest.objects.filter(source_id=source_id).first()
+            if manifest is None:
+                manifest = Manifest.objects.create(
+                    id=uuid.UUID(row["uuid"]),
+                    source_id=source_id,
+                    source_snapshot=row,
+                    sha256=row["sha256"],
+                    size=row["sizeBytes"],
+                    mime_type=row["mimeType"],
+                    owner_id=row["ownerStudentId"],
+                    academic_object=f"submission:{object_id}",
+                    period=row.get("courseOfferingId", "")[:40],
+                    version=row.get("version", 1),
+                    classification=(
+                        row.get("classification")
+                        if row.get("classification")
+                        in {"public", "internal", "confidential", "restricted-exam"}
+                        else "internal"
+                    ),
+                    content_path=row["contentAddressedPath"],
+                    scan_status="skipped",
+                )
+            manifest_map[source_id] = manifest
+            record, _ = Evidence.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "manifest": manifest,
+                    "object_type": "submission",
+                    "object_id": object_id,
+                    # The source says verified, but fixture bytes are not in this repository.
+                    "status": "submitted",
+                    "source_status": row.get("status", ""),
+                    "source_snapshot": row,
+                },
+            )
+            if record.status == "verified":
+                raise CommandError(f"Evidence demo {source_id} tidak boleh dipromosikan otomatis")
+            self.counts["evidence_manifests"] += 1
+
+        submission_map = {}
+        for row in submission_rows:
+            source_id = row["id"]
+            instrument = Instrument.objects.filter(source_id=row["assessmentPlanId"]).first()
+            if instrument is None:
+                raise CommandError(
+                    f"Submission {source_id}: assessment {row['assessmentPlanId']!r} tidak ada"
+                )
+            student = Student.objects.get(student_number=row["studentId"])
+            uploaded_at = next(
+                (
+                    parse_datetime(item.get("uploadedAt"))
+                    for item in manifest_rows
+                    if item["id"] in row.get("evidenceManifestIds", [])
+                ),
+                timezone.now(),
+            )
+            submission = Submission.objects.filter(source_id=source_id).first()
+            if submission is None:
+                submission = Submission.objects.create(
+                    source_id=source_id,
+                    public_id=uuid.UUID(row["uuid"]),
+                    instrument=instrument,
+                    student_id=row["studentId"],
+                    attempt=row.get("attempt", 1),
+                    response={},
+                    evidence_manifest_ids=row.get("evidenceManifestIds", []),
+                    status="final",
+                    submitted_at=uploaded_at,
+                    receipt_checksum=row["receiptChecksum"],
+                    late=row.get("late", False),
+                    source_version={
+                        "schema": self.dataset["schemaVersion"],
+                        "source_checksum": self.checksum,
+                        "source_record": row,
+                    },
+                    created_by_actor_id=str(student.user_id),
+                    updated_by_actor_id=str(student.user_id),
+                )
+            submission_map[source_id] = submission
+            self.counts["evidence_submissions"] += 1
+
+        for row in score_rows:
+            source_id = row["id"]
+            submission = submission_map.get(row["submissionId"])
+            if submission is None:
+                submission = Submission.objects.filter(source_id=row["submissionId"]).first()
+            if submission is None:
+                raise CommandError(f"Score {source_id}: submission sumber tidak ditemukan")
+            package = row.get("rulePackageId", "CURRENT-AABBC-V1").rsplit("-V", 1)[0]
+            letter, point = grade_for(decimal(row["normalizedScore"]), package)
+            published_at = next(
+                (
+                    parse_datetime(item.get("uploadedAt"))
+                    for item in manifest_rows
+                    if item.get("assessmentPlanId") == row.get("assessmentPlanId")
+                    and item.get("ownerStudentId") == row.get("studentId")
+                ),
+                timezone.now(),
+            )
+            Score.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "public_id": uuid.UUID(row["uuid"]),
+                    "submission": submission,
+                    "raw_score": decimal(row["rawScore"]),
+                    "max_score": decimal(row["maxScore"]),
+                    "normalized": decimal(row["normalizedScore"]),
+                    "attempt": submission.attempt,
+                    "letter": letter,
+                    "grade_point": point,
+                    "state": "graded",
+                    "rubric_trace": {
+                        "rubric_source_id": row.get("rubricId"),
+                        "evidence_source_status": row.get("evidenceStatus"),
+                    },
+                    "feedback": {"items": []},
+                    "assessor": self.users["pengampu"],
+                    "published_at": published_at,
+                    "rule_package": package,
+                    "rule_package_version": 1,
+                    "source_version": {
+                        "schema": self.dataset["schemaVersion"],
+                        "source_checksum": self.checksum,
+                        "source_record": row,
+                    },
+                    "calculation_trace": [
+                        "source-normalized-score-preserved",
+                        f"source_status={row.get('status')}",
+                    ],
+                    "created_by_actor_id": str(self.users["pengampu"].pk),
+                    "updated_by_actor_id": str(self.users["pengampu"].pk),
+                },
+            )
+            self.counts["evidence_scores"] += 1
+
+    def import_stage4_decision_overrides(self) -> None:
+        rows = self.dataset.get("academicDecisions", {}).get("overrides", [])
+        if not rows:
+            return
+        Rule = self.models["rule"]
+        Package = self.models["rule_package"]
+        Decision = self.models["decision"]
+        Override = self.models["decision_override"]
+        Student = self.models["student"]
+        irs_rule, _ = Rule.objects.update_or_create(
+            code="SOURCE-HISTORICAL-IRS-OVERRIDE",
+            version=1,
+            defaults={
+                "scope": {"type": "enrollment-plan"},
+                "input_schema": {"required": ["source_override"]},
+                "expression": {"source_override": True},
+                "severity": "information",
+                "status": "draft",
+                "created_by": self.users["prodi"],
+            },
+        )
+        attendance_rule = Rule.objects.get(code="ATTENDANCE-UAS-75", version=1)
+        for row in rows:
+            source_id = row["id"]
+            student = Student.objects.get(student_number=row["studentId"])
+            rule = attendance_rule if row["type"] == "UAS_ATTENDANCE" else irs_rule
+            package = Package.objects.filter(
+                code=student.rule_package, version=student.rule_package_version
+            ).first()
+            canonical = json.dumps(row, sort_keys=True, separators=(",", ":"))
+            decision_id = stable_uuid("source-decision", source_id)
+            decision, _ = Decision.objects.get_or_create(
+                id=decision_id,
+                defaults={
+                    "object_type": row["type"].lower(),
+                    "object_id": row.get("courseOfferingId") or row["studentId"],
+                    "rule": rule,
+                    "package": package,
+                    "outcome": "indeterminate",
+                    "reason_code": "SOURCE_DEMO_OVERRIDE_REQUIRES_REPLAY",
+                    "evidence_rows": [{"source_id": source_id, "classification": "demo"}],
+                    "input_snapshot": row,
+                    "calculation_trace": ["imported-demo-override", "official-replay-required"],
+                    "source_versions": {
+                        "schema": self.dataset["schemaVersion"],
+                        "source_checksum": self.checksum,
+                    },
+                    "explanation": "Override historis sintetis; keputusan resmi harus direplay.",
+                    "input_hash": hashlib.sha256(canonical.encode()).hexdigest(),
+                    "decision_hash": hashlib.sha256(
+                        f"{self.checksum}:{source_id}:decision".encode()
+                    ).hexdigest(),
+                    "correlation_id": stable_uuid("source-decision-correlation", source_id),
+                },
+            )
+            Override.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "id": stable_uuid("source-override", source_id),
+                    "decision": decision,
+                    # approved-demo is provenance, not institutional approval.
+                    "status": "reviewed",
+                    "source_status": row.get("status", ""),
+                    "source_snapshot": row,
+                    "reason_code": row["reasonCode"],
+                    "reason": "Riwayat sintetis dari dataset v5",
+                    "evidence_documents": [
+                        {"source_id": source_id, "source_checksum": self.checksum}
+                    ],
+                    "impact": row["type"],
+                    "maker": self.users["pengampu"],
+                    "checker": self.users["prodi"],
+                    "review_note": "Source approved-demo; official approval intentionally not imported.",
+                },
+            )
+            self.counts["decision_overrides"] += 1
+
+    def import_stage4_feature_flags(self) -> None:
+        Flag = self.models["feature_flag"]
+        for row in self.dataset.get("featureFlags", []):
+            scope = row.get("scope", "global")
+            normalized_scope: dict[str, Any]
+            if scope == "global":
+                normalized_scope = {"global": True}
+            elif isinstance(scope, str):
+                normalized_scope = {"environment": [scope]}
+            else:
+                normalized_scope = {
+                    "courses": [scope["courseOfferingId"]] if scope.get("courseOfferingId") else []
+                }
+            Flag.objects.update_or_create(
+                source_id=row["key"],
+                defaults={
+                    "code": row["key"].replace(".", "-"),
+                    "version": 1,
+                    # Dataset flags are demo posture and never activate runtime state.
+                    "state": "disabled",
+                    "scope": normalized_scope,
+                    "owner": row.get("ownerRole", "OPS"),
+                    "source_status": "enabled-demo" if row.get("enabled") else "disabled",
+                    "source_snapshot": row,
+                    "acceptance_evidence": f"Imported from schema v5 {self.checksum}",
+                    "kill_switch": row.get("killSwitch", False),
+                },
+            )
+            self.counts["feature_flags"] += 1
+
+    def import_stage4_quality(self) -> None:
+        quality = self.dataset.get("quality", {})
+        Issue = self.models["issue"]
+        Standard = self.models["quality_standard"]
+        Finding = self.models["quality_finding"]
+        Cycle = self.models["quality_cycle"]
+        severity_map = {
+            "blocking-error": "blocking",
+            "review-warning": "warning",
+            "information": "information",
+        }
+        owners = {"PRODI": self.users["prodi"], "GPM": self.users["gpm"]}
+        for row in quality.get("issues", []):
+            status = row.get("status", "open")
+            Issue.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": stable_uuid("quality-issue", row["id"]),
+                    "severity": severity_map[row["severity"]],
+                    "reason_code": row["reasonCode"],
+                    "object_type": "dataset-field",
+                    "object_id": row["id"],
+                    "impact": json.dumps(row.get("impact", []), ensure_ascii=False),
+                    "owner": owners.get(row.get("ownerRole"), self.users["prodi"]),
+                    "status": status,
+                    "accepted_risk_reason": (
+                        "Risiko sintetis diterima pada sumber demo"
+                        if status == "accepted-risk"
+                        else ""
+                    ),
+                    "source_snapshot": row,
+                    "source_checksum": self.checksum,
+                    "fingerprint": hashlib.sha256(
+                        f"{self.checksum}:{row['id']}".encode()
+                    ).hexdigest(),
+                    "resolution": row.get("resolvedAs", "") if status == "resolved" else "",
+                    "created_by_actor_id": str(self.users["gpm"].pk),
+                    "updated_by_actor_id": str(self.users["gpm"].pk),
+                },
+            )
+            self.counts["quality_issues"] += 1
+
+        standard_map = {}
+        for row in quality.get("provusStandards", []):
+            standard, _ = Standard.objects.update_or_create(
+                source_id=row["code"],
+                defaults={
+                    "public_id": stable_uuid("quality-standard", row["code"]),
+                    "code": row["code"],
+                    "metric": row["metric"],
+                    "target": decimal(row["target"]),
+                    "effective_from": parse_date(row.get("effectiveFrom")),
+                    "source_snapshot": row,
+                    "created_by_actor_id": str(self.users["gpm"].pk),
+                    "updated_by_actor_id": str(self.users["gpm"].pk),
+                },
+            )
+            standard_map[row["metric"]] = standard
+            self.counts["provus_standards"] += 1
+        for row in quality.get("provusFindings", []):
+            metric = row["scope"]["cplId"]
+            source_id = f"PROVUS-{row['scope']['courseOfferingId']}-{metric}"
+            Finding.objects.update_or_create(
+                source_id=source_id,
+                defaults={
+                    "id": stable_uuid("quality-finding", source_id),
+                    "standard": standard_map[metric],
+                    "scope": row["scope"],
+                    "actual": decimal(row["actual"]),
+                    "target": decimal(row["target"]),
+                    "gap": decimal(row["gap"]),
+                    "classification": row["classification"],
+                    "denominator": row.get("denominator", 0),
+                    "source_snapshot": row,
+                },
+            )
+            self.counts["provus_findings"] += 1
+        if quality.get("ppeppCycle"):
+            Cycle.objects.update_or_create(
+                period="dataset-v5",
+                scope_type="program",
+                scope_id=self.dataset["program"]["id"],
+                version=1,
+                defaults={
+                    "public_id": stable_uuid("quality-cycle", self.checksum),
+                    "standard": {"provus": quality.get("provusStandards", [])},
+                    "execution": {"source_checksum": self.checksum},
+                    "evaluation": {"findings": quality.get("provusFindings", [])},
+                    "control": {"issues": quality.get("issues", [])},
+                    "improvement": {"actions": quality.get("cqiActions", [])},
+                    "status": "draft",
+                    "approvals": [],
+                },
+            )
+            self.counts["quality_cycles"] += 1
+
+    def import_stage4_ai(self) -> None:
+        ai = self.dataset.get("ai", {})
+        Prompt = self.models["prompt"]
+        owners = {
+            "PRODI": self.users["prodi"],
+            "GPM": self.users["gpm"],
+            "PENGAMPU": self.users["pengampu"],
+            "MAHASISWA": self.users["mahasiswa"],
+        }
+        for row in ai.get("promptRegistry", []):
+            Prompt.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": stable_uuid("prompt", row["id"]),
+                    "code": row["id"],
+                    "version": row.get("version", 1),
+                    "task_class": "A1",
+                    "input_schema": {"source_metadata_only": True},
+                    "output_schema": {"status": row.get("outputStatus", "draft")},
+                    "data_class": "internal",
+                    "model_alias": "local-small",
+                    "template": "Prompt body is intentionally absent from the synthetic source.",
+                    "policy": {
+                        "source": row,
+                        "global_policies": ai.get("policies", {}),
+                        "kill_switch": ai.get("killSwitch", True),
+                    },
+                    "owner": owners[row["actor"]],
+                    "status": "draft",
+                    "source_snapshot": row,
+                    "created_by_actor_id": str(owners[row["actor"]].pk),
+                    "updated_by_actor_id": str(owners[row["actor"]].pk),
+                },
+            )
+            self.counts["ai_prompts"] += 1
+
+    def import_stage4_secure_exam(self) -> None:
+        secure = self.dataset.get("secureExam", {})
+        Exam = self.models["exam"]
+        Offering = self.models["offering"]
+        Instrument = self.models["instrument"]
+        for row in secure.get("examDefinitions", []):
+            offering = Offering.objects.get(source_id=row["courseOfferingId"])
+            instrument = Instrument.objects.get(source_id=row["assessmentPlanId"])
+            duration = int(instrument.blueprint.get("durationMinutes") or 90)
+            Exam.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": stable_uuid("secure-exam", row["id"]),
+                    "offering_public_id": offering.public_id,
+                    "title": f"Ujian aman {row['assessmentPlanId']}",
+                    "blueprint": {
+                        "assessment_plan": row["assessmentPlanId"],
+                        "version": row.get("blueprintVersion", 1),
+                        "source_blueprint": instrument.blueprint,
+                    },
+                    "item_versions": [],
+                    "roster_hash": hashlib.sha256(
+                        f"{row['id']}:{row.get('rosterCount', 0)}".encode()
+                    ).hexdigest(),
+                    "duration_minutes": duration,
+                    "policies": {
+                        "network": secure.get("networkPolicy", {}),
+                        "edge_profiles": secure.get("edgeProfiles", []),
+                        "packages": secure.get("packages", []),
+                        "sessions": secure.get("sessions", []),
+                        "go_no_go": secure.get("goNoGo", {}),
+                    },
+                    "classification": "restricted-exam",
+                    # approved-demo never becomes a released institutional exam.
+                    "status": "draft",
+                    "source_status": row.get("status", ""),
+                    "source_snapshot": row,
+                    "authored_by": self.users["pengampu"],
+                    "reviewed_by": self.users["gpm"],
+                    "approved_by": self.users["prodi"],
+                    "created_by_actor_id": str(self.users["pengampu"].pk),
+                    "updated_by_actor_id": str(self.users["pengampu"].pk),
+                },
+            )
+            self.counts["secure_exams"] += 1
+
+    def import_stage4_lifecycle(self) -> None:
+        lifecycle = self.dataset.get("academicLifecycle", {})
+        if not lifecycle:
+            return
+        Application = self.models["lifecycle_application"]
+        Configuration = self.models["lifecycle_configuration"]
+        Student = self.models["student"]
+        configuration = {key: value for key, value in lifecycle.items() if key != "applications"}
+        Configuration.objects.update_or_create(
+            source_id="ACADEMIC-LIFECYCLE-V5",
+            defaults={
+                "public_id": stable_uuid("lifecycle-configuration", self.checksum),
+                "schema_version": self.dataset["schemaVersion"],
+                "payload": configuration,
+                "created_by_actor_id": str(self.users["prodi"].pk),
+                "updated_by_actor_id": str(self.users["prodi"].pk),
+            },
+        )
+        self.counts["lifecycle_configurations"] += 1
+        for row in lifecycle.get("applications", []):
+            student = Student.objects.get(student_number=row["studentId"])
+            Application.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": stable_uuid("lifecycle-application", row["id"]),
+                    "student": student,
+                    "application_type": row["type"],
+                    "scheme_code": row.get("schemeCode", ""),
+                    "status": row.get("status", "draft"),
+                    "eligibility_snapshot": row.get("eligibilitySnapshot", {}),
+                    "requested_credits": row.get("requestedCredits"),
+                    "duration_minutes": row.get("durationMinutes"),
+                    "evidence_status": row.get("evidenceStatus", ""),
+                    "payload": row,
+                    "created_by_actor_id": str(student.user_id),
+                    "updated_by_actor_id": str(student.user_id),
+                },
+            )
+            self.counts["lifecycle_applications"] += 1
+
+    def import_stage4_integration(self) -> None:
+        integration = self.dataset.get("integration", {})
+        Contract = self.models["integration_contract"]
+        for row in integration.get("contracts", []):
+            Contract.objects.update_or_create(
+                source_id=row["id"],
+                defaults={
+                    "public_id": stable_uuid("integration-contract", row["id"]),
+                    "system": row["system"],
+                    "direction": row["direction"],
+                    "mode": row["mode"],
+                    "schema_version": row.get("schemaVersion", "1.0"),
+                    "status": row.get("status", "disabled"),
+                    "write_feature_flag": row.get("writeFeatureFlag", ""),
+                    "source_snapshot": {
+                        **row,
+                        "principles": integration.get("principles", {}),
+                        "credentialsIncluded": integration.get("credentialsIncluded", False),
+                    },
+                    "created_by_actor_id": str(self.users["prodi"].pk),
+                    "updated_by_actor_id": str(self.users["prodi"].pk),
+                },
+            )
+            self.counts["integration_contracts"] += 1
+
+    def import_stage4_audit(self) -> None:
+        Audit = self.models["audit"]
+        for row in self.dataset.get("auditTrail", {}).get("events", []):
+            if not Audit.objects.filter(source_id=row["id"]).exists():
+                Audit.objects.create(
+                    id=stable_uuid("source-audit", row["id"]),
+                    source_id=row["id"],
+                    source_previous_hash=row.get("previousHash", ""),
+                    source_event_hash=row.get("eventHash", ""),
+                    actor_label=row.get("actorRole", "SYSTEM"),
+                    actor_role=row.get("actorRole", "SYSTEM").lower(),
+                    actor_scope="dataset-v5",
+                    action=row["action"],
+                    object_type=row["objectType"],
+                    object_id=row["objectId"],
+                    summary=f"Imported source event {row['id']}",
+                    after={
+                        "source_summary": row.get("summary", {}),
+                        "source_occurred_at": row.get("occurredAt"),
+                        "source_previous_hash": row.get("previousHash"),
+                        "source_event_hash": row.get("eventHash"),
+                    },
+                    outcome=row.get("outcome", "success"),
+                    correlation_id=stable_uuid("source-audit-correlation", row["correlationId"]),
+                )
+            self.counts["audit_events"] += 1
 
     def import_tasks(self, curriculum) -> None:
         Task = self.models["task"]

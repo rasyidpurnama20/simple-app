@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import uuid
@@ -11,12 +12,25 @@ from obe.academic_lifecycle.models import (
     AcademicResult,
     AcademicStatus,
     EnrollmentPlan,
+    LifecycleApplication,
+    LifecycleConfiguration,
     StudentProfile,
 )
+from obe.ai.models import PromptTemplate
+from obe.assessment.models import Score, Submission
 from obe.curriculum.models import CurriculumVersion
+from obe.evidence.models import EvidenceRecord
 from obe.identity.models import LecturerProfile, RoleAssignment
-from obe.integration.models import IdentifierAlias
-from obe.shared.models import CohortRulePackage
+from obe.integration.models import IdentifierAlias, IntegrationContract
+from obe.quality.models import IntegrityIssue, QualityCycle, QualityFinding, QualityStandard
+from obe.secure_exam.models import Exam
+from obe.shared.models import (
+    AuditEvent,
+    CohortRulePackage,
+    DecisionOverride,
+    FeatureFlag,
+    FileManifest,
+)
 
 
 @pytest.mark.django_db
@@ -105,17 +119,18 @@ def test_import_rejects_orphan_master_reference_before_writing(settings, monkeyp
 
 
 @pytest.mark.django_db
-def test_full_sample_imports_all_supported_records_idempotently(tmp_path, monkeypatch):
-    source = os.environ.get("OBE_FULL_SAMPLE_PATH")
-    if not source:
-        pytest.skip("Set OBE_FULL_SAMPLE_PATH untuk acceptance file v5 lengkap")
+def test_full_sample_imports_all_supported_records_idempotently(settings, tmp_path, monkeypatch):
+    source = Path(
+        os.environ.get("OBE_FULL_SAMPLE_PATH")
+        or settings.BASE_DIR / "data/sample-data-2020-2026-obe-spec-v5.json"
+    )
     monkeypatch.setenv("OBE_DEMO_PASSWORD", f"runtime-{uuid.uuid4().hex}")
     report = tmp_path / "full-reconciliation.json"
-    call_command("import_obe_sample", path=Path(source), report=report)
+    call_command("import_obe_sample", path=source, report=report)
     first = json.loads(report.read_text())
-    call_command("import_obe_sample", path=Path(source), report=report)
+    call_command("import_obe_sample", path=source, report=report)
     second = json.loads(report.read_text())
-    dataset = json.loads(Path(source).read_text())
+    dataset = json.loads(source.read_text())
 
     from obe.assessment.models import AssessmentInstrument, Rubric
     from obe.learning.models import CourseOffering, RPSVersion, WeeklyPlan
@@ -188,5 +203,101 @@ def test_full_sample_imports_all_supported_records_idempotently(tmp_path, monkey
     assert first["imported"]["rps_versions"] == 77
     assert first["imported"]["weekly_plans"] == 1232
     assert first["imported"]["assessment_instruments"] == 459
+    assert FileManifest.objects.filter(source_id__isnull=False).count() == 366
+    assert EvidenceRecord.objects.filter(source_id__isnull=False).count() == 366
+    assert (
+        EvidenceRecord.objects.filter(
+            source_id__isnull=False, status="submitted", source_status="verified"
+        ).count()
+        == 366
+    )
+    assert Submission.objects.filter(source_id__isnull=False).count() == 366
+    assert Score.objects.filter(source_id__isnull=False).count() == 366
+    assert (
+        DecisionOverride.objects.filter(
+            source_id__isnull=False, status="reviewed", source_status="approved-demo"
+        ).count()
+        == 3330
+    )
+    assert FeatureFlag.objects.filter(source_id__isnull=False, state="disabled").count() == 10
+    assert AuditEvent.objects.filter(source_id__isnull=False).count() == 7
+    assert IntegrityIssue.objects.filter(source_id__isnull=False).count() == 8
+    assert QualityStandard.objects.count() == 12
+    assert QualityFinding.objects.count() == 3
+    assert QualityCycle.objects.filter(period="dataset-v5").count() == 1
+    assert PromptTemplate.objects.filter(source_id__isnull=False, status="draft").count() == 4
+    assert (
+        Exam.objects.filter(
+            source_id__isnull=False, status="draft", source_status="approved-demo"
+        ).count()
+        == 1
+    )
+    assert LifecycleApplication.objects.count() == 3
+    assert LifecycleConfiguration.objects.count() == 1
+    assert IntegrationContract.objects.count() == 5
+    stage4_keys = (
+        "evidence_manifests",
+        "evidence_submissions",
+        "evidence_scores",
+        "decision_overrides",
+        "feature_flags",
+        "audit_events",
+        "quality_issues",
+        "provus_standards",
+        "provus_findings",
+        "quality_cycles",
+        "ai_prompts",
+        "secure_exams",
+        "lifecycle_applications",
+        "lifecycle_configurations",
+        "integration_contracts",
+    )
+    for key in stage4_keys:
+        assert first["source"][key] == first["imported"][key]
+        assert key not in first["skipped"]
     assert first["skipped"]["academic_results"] == {"planned": 16404, "upcoming": 12118}
     assert second == first
+
+
+def test_repository_full_dataset_checksum_and_stage4_inventory(settings):
+    from obe.integration.management.commands.import_obe_sample import source_inventory
+
+    source = settings.BASE_DIR / "data/sample-data-2020-2026-obe-spec-v5.json"
+    raw = source.read_bytes()
+    assert len(raw) == 56_193_651
+    assert hashlib.sha256(raw).hexdigest() == (
+        "5d90915c2bbb46e9e44765299155c24782bccd2df75905c60c12e2391205aaa3"
+    )
+    inventory = source_inventory(json.loads(raw))
+    assert {
+        key: inventory[key]
+        for key in (
+            "evidence_manifests",
+            "evidence_submissions",
+            "evidence_scores",
+            "decision_overrides",
+            "feature_flags",
+            "audit_events",
+            "quality_issues",
+            "provus_standards",
+            "provus_findings",
+            "ai_prompts",
+            "secure_exams",
+            "lifecycle_applications",
+            "integration_contracts",
+        )
+    } == {
+        "evidence_manifests": 366,
+        "evidence_submissions": 366,
+        "evidence_scores": 366,
+        "decision_overrides": 3330,
+        "feature_flags": 10,
+        "audit_events": 7,
+        "quality_issues": 8,
+        "provus_standards": 12,
+        "provus_findings": 3,
+        "ai_prompts": 4,
+        "secure_exams": 1,
+        "lifecycle_applications": 3,
+        "integration_contracts": 5,
+    }

@@ -18,6 +18,7 @@ class EvidenceRecord(TimeStampedModel):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     source_status = models.CharField(max_length=40, blank=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     revision_path = models.JSONField(default=list, blank=True)
     manifest = models.OneToOneField("shared.FileManifest", on_delete=models.PROTECT)
     object_type = models.CharField(max_length=80)

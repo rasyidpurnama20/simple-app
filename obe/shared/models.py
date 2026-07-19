@@ -65,6 +65,9 @@ class AppendOnlyAuditQuerySet(models.QuerySet):
 
 class AuditEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_previous_hash = models.CharField(max_length=64, blank=True)
+    source_event_hash = models.CharField(max_length=64, blank=True)
     occurred_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
     actor_id = models.CharField(max_length=64, blank=True)
     actor_label = models.CharField(max_length=160, blank=True)
@@ -318,6 +321,9 @@ class FeatureFlag(VersionedModel):
         DEPRECATED = "deprecated", "Deprecated"
         RETIRED = "retired", "Retired"
 
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_status = models.CharField(max_length=40, blank=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     code = models.SlugField(max_length=100)
     state = models.CharField(max_length=20, choices=State.choices, default=State.DISABLED)
     scope = models.JSONField(default=dict, blank=True)
@@ -548,6 +554,9 @@ class DecisionOverride(TimeStampedModel):
         REVOKED = "revoked", "Revoked"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_status = models.CharField(max_length=40, blank=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     decision = models.ForeignKey(
         AcademicDecision, on_delete=models.PROTECT, related_name="overrides"
     )
@@ -633,6 +642,8 @@ class FileManifest(models.Model):
         ERROR = "error", "Error"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     sha256 = models.CharField(max_length=64, db_index=True)
     size = models.PositiveBigIntegerField()
     mime_type = models.CharField(max_length=120)

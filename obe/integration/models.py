@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from obe.shared.models import VersionedModel
+
 
 class IntegrationBatch(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -42,3 +44,14 @@ class IdentifierAlias(models.Model):
             )
         ]
         indexes = [models.Index(fields=["namespace", "canonical_identifier"])]
+
+
+class IntegrationContract(VersionedModel):
+    source_id = models.CharField(max_length=120, unique=True)
+    system = models.CharField(max_length=80)
+    direction = models.CharField(max_length=32)
+    mode = models.CharField(max_length=80)
+    schema_version = models.CharField(max_length=40)
+    status = models.CharField(max_length=32)
+    write_feature_flag = models.CharField(max_length=120, blank=True)
+    source_snapshot = models.JSONField(default=dict)

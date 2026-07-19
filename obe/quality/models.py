@@ -23,6 +23,7 @@ class IntegrityIssue(VersionedModel):
         REOPENED = "reopened", "Reopened"
         VERIFIED = "verified", "Verified"
 
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     severity = models.CharField(
         max_length=20,
         choices=Severity.choices,
@@ -113,3 +114,33 @@ class ImprovementAction(VersionedModel):
     baseline = models.JSONField(default=dict)
     result = models.JSONField(default=dict)
     approval = models.JSONField(default=dict)
+
+
+class QualityStandard(VersionedModel):
+    source_id = models.CharField(max_length=120, unique=True)
+    code = models.CharField(max_length=80)
+    metric = models.CharField(max_length=80)
+    target = models.DecimalField(max_digits=8, decimal_places=2)
+    source_snapshot = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code", "version"], name="quality_standard_code_version_unique"
+            )
+        ]
+
+
+class QualityFinding(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_id = models.CharField(max_length=160, unique=True)
+    standard = models.ForeignKey(QualityStandard, on_delete=models.PROTECT, related_name="findings")
+    scope = models.JSONField(default=dict)
+    actual = models.DecimalField(max_digits=8, decimal_places=2)
+    target = models.DecimalField(max_digits=8, decimal_places=2)
+    gap = models.DecimalField(max_digits=8, decimal_places=2)
+    classification = models.CharField(max_length=40)
+    denominator = models.PositiveIntegerField(default=0)
+    source_snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

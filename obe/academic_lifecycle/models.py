@@ -112,3 +112,24 @@ class Notification(models.Model):
     read_at = models.DateTimeField(null=True, blank=True)
     snoozed_until = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+
+
+class LifecycleApplication(VersionedModel):
+    source_id = models.CharField(max_length=120, unique=True)
+    student = models.ForeignKey(
+        StudentProfile, on_delete=models.PROTECT, related_name="lifecycle_applications"
+    )
+    application_type = models.CharField(max_length=32)
+    scheme_code = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=32)
+    eligibility_snapshot = models.JSONField(default=dict)
+    requested_credits = models.PositiveSmallIntegerField(null=True, blank=True)
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True)
+    evidence_status = models.CharField(max_length=32, blank=True)
+    payload = models.JSONField(default=dict)
+
+
+class LifecycleConfiguration(VersionedModel):
+    source_id = models.CharField(max_length=120, unique=True)
+    schema_version = models.CharField(max_length=40)
+    payload = models.JSONField(default=dict)
