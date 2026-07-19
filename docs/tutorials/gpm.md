@@ -32,6 +32,14 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 4. Setelah pemilik memperbaiki sumber, jalankan revalidation. Pindahkan `resolved` ke `verified` hanya bila finding tidak muncul lagi; update stale akan ditolak oleh lock version.
 5. Saat mereview banding, gunakan evidence row dan source version dari decision snapshot. Pemohon tidak boleh menjadi reviewer.
 
+## Review paket kurikulum
+
+1. Jalankan laporan katalog, allocation, dan traceability pada versi `draft/review`.
+2. Pastikan 5 PL, 12 CPL, 18 BK, 77 mata kuliah, dan 31 CPMK berasal dari versi sumber yang sama.
+3. Tolak aktivasi bila total bobot parent meleset, mapping belum memiliki referensi approval, terdapat orphan/cycle, atau checksum paket berubah.
+4. Untuk dataset demo, verifikasi blocker 129 SKS wajib serta CPMK22/CPMK27 tanpa inbound mapping. Finding tersebut adalah bukti validator bekerja, bukan alasan mengarang relasi.
+5. Reviewer tidak boleh merangkap maker, approver, atau activator. Ikuti [runbook kurikulum](../CURRICULUM_RUNBOOK.md) untuk rehearsal dan rollback.
+
 ## Hasil yang diharapkan
 
 - GPM dapat membedakan agregat program dan mata kuliah.
