@@ -2,6 +2,7 @@ FROM node:24-alpine AS assets
 WORKDIR /build
 COPY package.json package-lock.json* ./
 RUN npm install --ignore-scripts
+COPY assets ./assets
 COPY static ./static
 COPY templates ./templates
 COPY obe ./obe
