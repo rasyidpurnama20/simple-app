@@ -1,0 +1,40 @@
+{% load static %}
+<!doctype html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false}'>
+  <title>{% block title %}OBE Apps{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/app.min.css' %}">
+  <script defer src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script defer src="{% static 'src/htmx.min.js' %}"></script>
+  <script defer src="{% static 'src/app.js' %}"></script>
+</head>
+<body class="min-h-full text-slate-900">
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-3">Lewati ke konten</a>
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+      <a href="{% url 'dashboard' %}" class="flex items-center gap-3 font-bold">
+        <span class="grid size-9 place-items-center rounded-xl bg-indigo-600 text-sm text-white">OBE</span>
+        <span>OBE Apps</span>
+      </a>
+      {% if user.is_authenticated %}
+      <nav aria-label="Navigasi utama" class="flex items-center gap-3 text-sm">
+        <a class="rounded-lg px-3 py-2 hover:bg-slate-100" href="{% url 'my_tasks' %}">Tugas Saya</a>
+        <span class="hidden text-slate-500 sm:inline">{{ user.get_username }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rounded-lg border px-3 py-2 hover:bg-slate-50">Keluar</button></form>
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+  <main id="main" class="mx-auto max-w-7xl px-4 py-8 sm:px-6" tabindex="-1">
+    {% if messages %}<div aria-live="polite">{% for message in messages %}<p class="mb-3 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-900">{{ message }}</p>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="mx-auto max-w-7xl px-4 py-6 text-xs text-slate-500 sm:px-6">
+    Rilis {{ obe_release }} · Asia/Jakarta · AI {% if ai_enabled %}aktif{% else %}nonaktif{% endif %}
+  </footer>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Tugas Saya · OBE Apps{% endblock %}
+{% block content %}
+<div class="flex items-end justify-between"><div><p class="text-sm font-semibold text-indigo-600">Timeline akademik</p><h1 class="mt-1 text-3xl font-bold">Tugas Saya</h1></div><button hx-get="{% url 'my_tasks' %}" hx-target="#task-list" hx-swap="innerHTML" class="rounded-lg border px-3 py-2 text-sm">Segarkan</button></div>
+<div id="task-list" class="mt-6">{% include "partials/tasks.html" %}</div>
+{% endblock %}
+

@@ -1,0 +1,61 @@
+name: obe-apps
+services:
+  db:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: obe
+      POSTGRES_USER: obe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-obe}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U obe"], interval: 5s, timeout: 5s, retries: 10}
+    restart: unless-stopped
+  valkey:
+    image: valkey/valkey:8.1.2-alpine
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes: ["valkey-data:/data"]
+    healthcheck: {test: ["CMD", "valkey-cli", "ping"], interval: 5s, timeout: 3s, retries: 10}
+    restart: unless-stopped
+  rabbitmq:
+    image: rabbitmq:4.1.1-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: obe
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:-obe}"
+    volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
+    healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 5s, retries: 10}
+    restart: unless-stopped
+  web: &app
+    build: .
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgresql://obe:${POSTGRES_PASSWORD:-obe}@db:5432/obe
+      CACHE_URL: redis://valkey:6379/0
+      CELERY_BROKER_URL: amqp://obe:${RABBITMQ_PASSWORD:-obe}@rabbitmq:5672//
+    volumes: ["evidence-data:/app/var/evidence", "uploads-data:/app/var/uploads"]
+    depends_on:
+      db: {condition: service_healthy}
+      valkey: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    command: ["./scripts/entrypoint.sh"]
+    restart: unless-stopped
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "interactive,academic-critical,batch,maintenance"]
+    healthcheck: {disable: true}
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config", "beat", "-l", "INFO"]
+    healthcheck: {disable: true}
+  nginx:
+    image: nginx:1.28.0-alpine
+    ports: ["8000:80"]
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on: [web]
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  valkey-data:
+  rabbitmq-data:
+  evidence-data:
+  uploads-data:

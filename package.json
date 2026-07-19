@@ -1,0 +1,17 @@
+{
+  "name": "obe-apps-assets",
+  "private": true,
+  "scripts": {
+    "build": "tailwindcss -i ./static/src/app.css -o ./static/vendor/app.min.css --minify && node ./scripts/copy-echarts.mjs",
+    "assets": "npm run build",
+    "watch": "tailwindcss -i ./static/src/app.css -o ./static/vendor/app.min.css --watch"
+  },
+  "dependencies": {
+    "echarts": "5.6.0",
+    "htmx.org": "2.0.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.11",
+    "tailwindcss": "4.1.11"
+  }
+}

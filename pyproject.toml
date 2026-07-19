@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obe-apps"
+version = "0.1.0"
+description = "Compact, modular OBE academic quality platform"
+requires-python = ">=3.12"
+dependencies = [
+  "Django>=5.2,<5.3",
+  "djangorestframework>=3.16,<3.17",
+  "celery[redis]>=5.5,<5.6",
+  "cryptography>=45,<46",
+  "django-environ>=0.12,<0.13",
+  "django-redis>=6.0,<6.1",
+  "psycopg[binary]>=3.2,<3.3",
+  "gunicorn>=23,<24",
+  "whitenoise>=6.9,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "coverage[toml]>=7.8,<8",
+  "mypy>=1.16,<2",
+  "pip-audit>=2.9,<3",
+  "pytest>=8.4,<9",
+  "pytest-django>=4.11,<5",
+  "ruff>=0.11,<0.12",
+]
+
+[tool.setuptools.packages.find]
+include = ["config*", "obe*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations", ".deps", ".tool-cache", "pip-target-*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "DJ", "S"]
+ignore = ["E501", "DJ008", "DJ012", "S101", "S106", "S310"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["obe"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true

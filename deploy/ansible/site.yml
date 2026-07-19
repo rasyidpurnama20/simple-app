@@ -1,0 +1,5 @@
+- name: Provision OBE Server and Exam Edge
+  hosts: all
+  become: true
+  roles: [obe]
+

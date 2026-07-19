@@ -1,0 +1,19 @@
+receivers:
+  otlp:
+    protocols: {grpc: {}, http: {}}
+processors:
+  memory_limiter: {check_interval: 1s, limit_mib: 256}
+  batch: {}
+  attributes/redact:
+    actions:
+      - {key: user.name, action: delete}
+      - {key: student.number, action: delete}
+      - {key: exam.answer, action: delete}
+exporters:
+  prometheus: {endpoint: "0.0.0.0:8889"}
+  debug: {verbosity: basic}
+service:
+  pipelines:
+    metrics: {receivers: [otlp], processors: [memory_limiter, attributes/redact, batch], exporters: [prometheus]}
+    traces: {receivers: [otlp], processors: [memory_limiter, attributes/redact, batch], exporters: [debug]}
+
