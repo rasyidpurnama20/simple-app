@@ -3,6 +3,7 @@ import hmac
 import json
 import os
 from base64 import b64decode, b64encode
+from collections.abc import Iterable
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from django.utils import timezone
@@ -30,13 +31,23 @@ def sign_bundle(payload: dict, signing_key: bytes) -> dict:
     }
 
 
-def verify_bundle(bundle: dict, signing_key: bytes) -> dict:
+def _signature_matches(signature: str, payload: bytes, signing_keys: Iterable[bytes]) -> bool:
+    return any(
+        hmac.compare_digest(hmac.new(key, payload, hashlib.sha256).hexdigest(), signature)
+        for key in signing_keys
+    )
+
+
+def verify_bundle(
+    bundle: dict, signing_key: bytes, fallback_signing_keys: Iterable[bytes] = ()
+) -> dict:
     canonical = b64decode(bundle["payload"], validate=True)
     checksum = hashlib.sha256(canonical).hexdigest()
-    signature = hmac.new(signing_key, canonical, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(checksum, bundle["sha256"]):
         raise ValueError("Checksum bundle tidak cocok")
-    if not hmac.compare_digest(signature, bundle["signature"]):
+    if not _signature_matches(
+        bundle["signature"], canonical, (signing_key, *fallback_signing_keys)
+    ):
         raise ValueError("Signature bundle tidak valid")
     return json.loads(canonical)
 
@@ -55,14 +66,18 @@ def encrypt_bundle(payload: dict, encryption_key: bytes, signing_key: bytes) -> 
     }
 
 
-def decrypt_bundle(bundle: dict, encryption_key: bytes, signing_key: bytes) -> dict:
+def decrypt_bundle(
+    bundle: dict,
+    encryption_key: bytes,
+    signing_key: bytes,
+    fallback_signing_keys: Iterable[bytes] = (),
+) -> dict:
     nonce = b64decode(bundle["nonce"], validate=True)
     ciphertext = b64decode(bundle["ciphertext"], validate=True)
     signed = nonce + ciphertext
     if not hmac.compare_digest(hashlib.sha256(signed).hexdigest(), bundle["sha256"]):
         raise ValueError("Checksum encrypted bundle tidak cocok")
-    expected = hmac.new(signing_key, signed, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, bundle["signature"]):
+    if not _signature_matches(bundle["signature"], signed, (signing_key, *fallback_signing_keys)):
         raise ValueError("Signature encrypted bundle tidak valid")
     plaintext = AESGCM(encryption_key).decrypt(nonce, ciphertext, b"obe-exam-bundle-v1")
     return json.loads(plaintext)

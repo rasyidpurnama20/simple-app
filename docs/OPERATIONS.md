@@ -2,7 +2,7 @@
 
 ## Deploy
 
-1. Isi secret melalui SOPS; jangan commit plaintext.
+1. Isi secret melalui SOPS sesuai [runbook](SECRETS_RUNBOOK.md); jangan commit plaintext.
 2. Set `OBE_IMAGE` ke image immutable dengan digest.
 3. Jalankan backup pra-rilis.
 4. `docker compose pull && docker compose up -d`.
@@ -14,7 +14,7 @@
 - `pg_dump --format=custom` database.
 - Snapshot evidence, config terenkripsi, signing metadata, dan audit.
 - Hitung SHA-256 seluruh artefak dan salin ke storage off-host.
-- Simpan record count, waktu, versi aplikasi, dan checksum pada manifest backup.
+- Simpan record count, waktu, versi aplikasi, checksum ciphertext, serta versi secret pada manifest backup. Jangan simpan nilai secret, decrypted file, environment dump, atau hash plaintext secret.
 
 ## Restore rehearsal
 
@@ -34,4 +34,3 @@
 ## Insiden
 
 P1/P2 mengaktifkan on-call dan communication plan. Catat correlation ID, dampak, timeline, mitigasi, dan postmortem tanpa menyalahkan individu. AI, export, integration write, notification, analytics berat, dan Secure Exam sync memiliki kill switch terpisah.
-

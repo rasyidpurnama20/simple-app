@@ -9,6 +9,14 @@ processors:
       - {key: user.name, action: delete}
       - {key: student.number, action: delete}
       - {key: exam.answer, action: delete}
+      - {key: http.request.header.authorization, action: delete}
+      - {key: http.request.header.cookie, action: delete}
+      - {key: http.response.header.set-cookie, action: delete}
+      - {key: db.connection_string, action: delete}
+      - {key: messaging.message.body, action: delete}
+      - {key: celery.task.args, action: delete}
+      - {key: celery.task.kwargs, action: delete}
+      - {key: exception.stacktrace, action: delete}
 exporters:
   prometheus: {endpoint: "0.0.0.0:8889"}
   debug: {verbosity: basic}
@@ -16,4 +24,3 @@ service:
   pipelines:
     metrics: {receivers: [otlp], processors: [memory_limiter, attributes/redact, batch], exporters: [prometheus]}
     traces: {receivers: [otlp], processors: [memory_limiter, attributes/redact, batch], exporters: [debug]}
-

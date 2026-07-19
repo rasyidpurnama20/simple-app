@@ -7,7 +7,7 @@
 | 01 | Baseline dan arsitektur | `docs/ARCHITECTURE.md`, paket domain | Baseline |
 | 02 | Struktur dan batas modul | `obe/*`, `tests/test_architecture.py` | Baseline |
 | 03 | CI dan quality gate | `.github/workflows/ci.yml`, PR template | Baseline |
-| 04 | Environment dan secret | `config/settings/*`, `.sops.yaml` | Baseline |
+| 04 | Environment dan secret | lima profil settings, validasi fail-fast, SOPS, redaksi, rotasi/revokasi, `PR04_ACCEPTANCE.md` | Implemented |
 | 05 | Deployment reproducible | `Dockerfile`, Compose, Ansible | Baseline |
 | 06 | PostgreSQL source of truth | models, constraints, initial migrations | Baseline |
 | 07 | Evidence immutable | `shared.FileManifest`, `evidence` service | Baseline |
