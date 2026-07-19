@@ -13,6 +13,7 @@ class CurriculumVersion(VersionedModel):
         ACTIVE = "active", "Active"
         ARCHIVED = "archived", "Archived"
 
+    source_id = models.CharField(max_length=80, null=True, blank=True, unique=True)
     program_code = models.CharField(max_length=32)
     program_name = models.CharField(max_length=160, blank=True)
     degree_level = models.CharField(max_length=40, default="sarjana")
@@ -69,7 +70,8 @@ class CurriculumVersion(VersionedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["program_code", "version"], name="curriculum_program_version_unique"
+                fields=["program_code", "cohort_from", "version"],
+                name="curriculum_program_cohort_version_unique",
             )
         ]
 

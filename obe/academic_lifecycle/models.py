@@ -10,6 +10,7 @@ class StudentProfile(VersionedModel):
     cohort = models.PositiveSmallIntegerField()
     curriculum_public_id = models.UUIDField()
     rule_package = models.CharField(max_length=32, default="CURRENT-AABBC")
+    rule_package_version = models.PositiveSmallIntegerField(default=1)
 
 
 class AcademicStatus(VersionedModel):
@@ -18,6 +19,7 @@ class AcademicStatus(VersionedModel):
         max_length=24,
         choices=[
             ("candidate", "Calon"),
+            ("admitted", "Diterima"),
             ("active", "Aktif"),
             ("absent", "Mangkir"),
             ("leave", "Cuti"),
