@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Katalog Kurikulum · OBE Apps{% endblock %}
+{% block content %}
+<section aria-labelledby="catalog-title">
+  <p class="text-sm font-semibold text-indigo-600">Dataset kurikulum v5</p>
+  <h1 id="catalog-title" class="mt-1 text-3xl font-bold">Katalog Kurikulum</h1>
+  {% if curriculum %}
+  <div class="mt-5 grid gap-3 sm:grid-cols-4">
+    <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Status</p><p class="mt-1 font-bold">{{ curriculum.get_status_display }}</p></article>
+    <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Outcome</p><p class="mt-1 font-bold">{{ curriculum.outcome_count }}</p></article>
+    <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">SKS wajib</p><p class="mt-1 font-bold">{{ required_credits }}</p></article>
+    <article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">SKS pilihan tersedia</p><p class="mt-1 font-bold">{{ elective_credits }}</p></article>
+  </div>
+  {% if curriculum.status == "review" %}<p class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Kurikulum berada pada status review. Dataset mencatat {{ required_credits }} SKS wajib, sedangkan gate aktivasi mensyaratkan tepat 126 SKS.</p>{% endif %}
+  <div class="mt-6 overflow-x-auto rounded-2xl border bg-white">
+    <table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-3">Kode</th><th class="px-4 py-3">Mata kuliah</th><th class="px-4 py-3">Semester</th><th class="px-4 py-3">SKS</th><th class="px-4 py-3">Jenis</th></tr></thead><tbody class="divide-y">{% for course in courses %}<tr><td class="px-4 py-3 font-mono text-xs">{{ course.code }}</td><td class="px-4 py-3 font-medium">{{ course.name }}</td><td class="px-4 py-3">{{ course.recommended_semester }}</td><td class="px-4 py-3">{{ course.credits }}</td><td class="px-4 py-3">{% if course.required %}Wajib{% else %}Pilihan{% endif %}</td></tr>{% endfor %}</tbody></table>
+  </div>
+  {% else %}<p class="mt-5 rounded-xl bg-amber-50 p-4">Data kurikulum belum diimpor. Jalankan <code>python manage.py import_obe_sample</code>.</p>{% endif %}
+</section>
+{% endblock %}

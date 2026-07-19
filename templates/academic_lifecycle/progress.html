@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Kemajuan Saya · OBE Apps{% endblock %}
+{% block content %}
+<section aria-labelledby="progress-title">
+  <p class="text-sm font-semibold text-indigo-600">Data pribadi sintetis</p>
+  <h1 id="progress-title" class="mt-1 text-3xl font-bold">Kemajuan Akademik Saya</h1>
+  {% if profile %}
+  <div class="mt-5 grid gap-3 sm:grid-cols-3"><article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">NIM</p><p class="mt-1 font-bold">{{ profile.student_number }}</p></article><article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">SKS lulus</p><p class="mt-1 font-bold">{{ credits }}</p></article><article class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">IPK terhitung</p><p class="mt-1 font-bold">{% if gpa is not None %}{{ gpa|floatformat:2 }}{% else %}—{% endif %}</p></article></div>
+  <div class="mt-6 overflow-x-auto rounded-2xl border bg-white"><table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-3">Tahun</th><th class="px-4 py-3">Semester</th><th class="px-4 py-3">Mata kuliah</th><th class="px-4 py-3">SKS</th><th class="px-4 py-3">Nilai</th></tr></thead><tbody class="divide-y">{% for result in results %}<tr><td class="px-4 py-3">{{ result.academic_year }}</td><td class="px-4 py-3">{{ result.semester }}</td><td class="px-4 py-3">{{ result.course_label }}</td><td class="px-4 py-3">{{ result.credits }}</td><td class="px-4 py-3">{{ result.letter }}</td></tr>{% empty %}<tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">Belum ada hasil studi.</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="mt-5 rounded-xl bg-slate-100 p-4">Akun ini tidak memiliki profil mahasiswa. Gunakan menu ini dengan akun <code>mahasiswa</code>.</p>{% endif %}
+</section>
+{% endblock %}

@@ -22,7 +22,9 @@
       </a>
       {% if user.is_authenticated %}
       <nav aria-label="Navigasi utama" class="flex items-center gap-3 text-sm">
+        <a class="rounded-lg px-3 py-2 hover:bg-slate-100" href="{% url 'curriculum_catalog' %}">Katalog</a>
         <a class="rounded-lg px-3 py-2 hover:bg-slate-100" href="{% url 'my_tasks' %}">Tugas Saya</a>
+        <a class="hidden rounded-lg px-3 py-2 hover:bg-slate-100 sm:inline" href="{% url 'my_progress' %}">Kemajuan</a>
         <span class="hidden text-slate-500 sm:inline">{{ user.get_username }}</span>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rounded-lg border px-3 py-2 hover:bg-slate-50">Keluar</button></form>
       </nav>

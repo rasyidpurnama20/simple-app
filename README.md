@@ -24,6 +24,8 @@ Buka <http://localhost:8000>. Data demo dibuat otomatis.
 
 Password acak ditampilkan sekali oleh `setup-local.sh` dan tersimpan di `.env` privat. Seed demo otomatis ditolak saat mode production/non-debug.
 
+Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah dengan kode asli, pemetaan kurikulum, agregat capaian, dan empat riwayat mahasiswa sintetis. Detail provenance serta pemetaan model tersedia di [panduan dataset v5](docs/DATASET_V5.md).
+
 Untuk menghentikan aplikasi:
 
 ```bash
@@ -49,6 +51,9 @@ docker compose exec web python manage.py makemigrations --check --dry-run
 
 # Masuk shell Django
 docker compose exec web python manage.py shell
+
+# Impor ulang dataset v5 secara idempotent
+docker compose exec web python manage.py import_obe_sample
 ```
 
 ## Menjalankan tanpa Docker
@@ -65,6 +70,17 @@ python manage.py runserver
 ```
 
 SQLite dipakai otomatis untuk pengembangan cepat; PostgreSQL tetap menjadi sumber kebenaran pada deployment Compose.
+
+## Tutorial berdasarkan aktor
+
+| Aktor | Fitur utama | Panduan |
+|---|---|---|
+| Prodi | katalog, gate aktivasi, approval | [Tutorial Prodi](docs/tutorials/prodi.md) |
+| GPM | verifikasi mutu dan capaian | [Tutorial GPM](docs/tutorials/gpm.md) |
+| Pengampu | pemetaan CPMK dan bukti asesmen | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
+| Mahasiswa | tugas dan kemajuan pribadi | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
+
+Fungsi DPA, koordinator, pembimbing, penguji, mentor, dan TPMF dijalankan sebagai assignment terbatas dari peran utama. Lihat [indeks tutorial aktor](docs/tutorials/README.md) untuk batas scope-nya.
 
 ## Struktur singkat
 
@@ -128,6 +144,8 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Status implementasi dan release gate](docs/IMPLEMENTATION_STATUS.md)
 - [Tata kelola CI dan branch](docs/CI_GOVERNANCE.md)
 - [Audit penerimaan PR-01–PR-03](docs/PR01_PR03_ACCEPTANCE.md)
+- [Dataset sintetis v5](docs/DATASET_V5.md)
+- [Tutorial seluruh aktor](docs/tutorials/README.md)
 
 ## Catatan ruang lingkup
 
