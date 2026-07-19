@@ -28,6 +28,43 @@ EXPECTED_COUNTS = {
     "courses": 77,
 }
 NAMESPACE = uuid.UUID("8d99f774-e2ad-44fb-8d48-f47bb1d03ea8")
+ENROLLMENT_STATUSES = {"completed", "planned", "upcoming"}
+RECONCILIATION_COVERAGE = {
+    "curriculum_versions": "curricula",
+    "graduate_profiles": "pl",
+    "cpl": "cpl",
+    "knowledge_areas": "bk",
+    "cpmk": "cpmk",
+    "courses": "courses",
+    "rule_packages": "rule_packages",
+    "academic_rules": "academic_rules",
+    "students": "students",
+    "semester_records": "plans",
+    "course_enrollments_completed": "results",
+    "lecturers": None,
+    "course_offerings": "course_offerings",
+    "rps_versions": "rps_versions",
+    "course_outcomes": "rps_course_outcomes",
+    "sub_outcomes": "rps_sub_outcomes",
+    "indicators": "rps_indicators",
+    "weekly_plans": "weekly_plans",
+    "assessment_plans": "assessment_instruments",
+    "rubrics": "rubrics",
+    "evidence_manifests": None,
+    "evidence_submissions": None,
+    "evidence_scores": None,
+    "decision_overrides": None,
+    "feature_flags": None,
+    "audit_events": None,
+    "quality_issues": None,
+    "provus_standards": None,
+    "provus_findings": None,
+    "ai_prompts": None,
+    "secure_exams": None,
+    "lifecycle_applications": None,
+    "scoped_assignments": None,
+    "integration_contracts": None,
+}
 
 
 def stable_uuid(*parts: object) -> uuid.UUID:
@@ -42,6 +79,110 @@ def parse_date(value):
 
 def decimal(value, default="0") -> Decimal:
     return Decimal(str(default if value is None else value))
+
+
+def enrollment_status(enrollment: dict) -> str:
+    """Normalize v5 enrollment state while retaining compact-fixture compatibility."""
+    status = enrollment.get("status")
+    if status in {None, ""}:
+        return "completed" if enrollment.get("grade") is not None else "planned"
+    return str(status).strip().lower()
+
+
+def source_inventory(dataset: dict) -> dict[str, int]:
+    students = dataset.get("students", [])
+    semester_record_count = 0
+    enrollment_count = 0
+    enrollment_status_counts: dict[str, int] = defaultdict(int)
+    for student in students:
+        for semester in student.get("semesterRecords", []):
+            semester_record_count += 1
+            for enrollment in semester.get("courseEnrollments", []):
+                enrollment_count += 1
+                enrollment_status_counts[enrollment_status(enrollment)] += 1
+    inventory = {
+        "curriculum_versions": len(dataset.get("curriculumVersions", [])),
+        "graduate_profiles": len(dataset.get("graduateProfiles", [])),
+        "cpl": len(dataset.get("cpl", [])),
+        "knowledge_areas": len(dataset.get("knowledgeAreas", [])),
+        "cpmk": len(dataset.get("cpmk", [])),
+        "courses": len(dataset.get("courses", [])),
+        "rule_packages": len(dataset.get("academicRuleRegistry", {}).get("rulePackages", [])),
+        "academic_rules": len(dataset.get("academicRuleRegistry", {}).get("rules", [])),
+        "students": len(students),
+        "semester_records": semester_record_count,
+        "course_enrollments": enrollment_count,
+        "lecturers": len(dataset.get("lecturers", [])),
+        "course_offerings": len(dataset.get("courseOfferings", [])),
+        "rps_versions": len(dataset.get("learning", {}).get("rpsVersions", [])),
+        "course_outcomes": len(dataset.get("learning", {}).get("courseOutcomes", [])),
+        "sub_outcomes": len(dataset.get("learning", {}).get("subOutcomes", [])),
+        "indicators": len(dataset.get("learning", {}).get("indicators", [])),
+        "weekly_plans": len(dataset.get("learning", {}).get("weeklyPlans", [])),
+        "assessment_plans": len(dataset.get("assessment", {}).get("assessmentPlans", [])),
+        "rubrics": len(dataset.get("assessment", {}).get("rubricLibrary", [])),
+        "evidence_manifests": len(dataset.get("evidence", {}).get("manifests", [])),
+        "evidence_submissions": len(dataset.get("evidence", {}).get("submissions", [])),
+        "evidence_scores": len(dataset.get("evidence", {}).get("scoreRecords", [])),
+        "decision_overrides": len(dataset.get("academicDecisions", {}).get("overrides", [])),
+        "feature_flags": len(dataset.get("featureFlags", [])),
+        "audit_events": len(dataset.get("auditTrail", {}).get("events", [])),
+        "quality_issues": len(dataset.get("quality", {}).get("issues", [])),
+        "provus_standards": len(dataset.get("quality", {}).get("provusStandards", [])),
+        "provus_findings": len(dataset.get("quality", {}).get("provusFindings", [])),
+        "ai_prompts": len(dataset.get("ai", {}).get("promptRegistry", [])),
+        "secure_exams": len(dataset.get("secureExam", {}).get("examDefinitions", [])),
+        "lifecycle_applications": len(dataset.get("academicLifecycle", {}).get("applications", [])),
+        "scoped_assignments": len(dataset.get("identity", {}).get("scopedAssignments", [])),
+        "integration_contracts": len(dataset.get("integration", {}).get("contracts", [])),
+    }
+    for status in sorted(ENROLLMENT_STATUSES):
+        inventory[f"course_enrollments_{status}"] = enrollment_status_counts[status]
+    return inventory
+
+
+def enrollment_contract_errors(dataset: dict) -> list[str]:
+    """Return bounded, actionable errors before the transaction writes any domain row."""
+    course_codes = {item["code"] for item in dataset.get("courses", [])}
+    errors: list[str] = []
+    error_count = 0
+    for student in dataset.get("students", []):
+        for semester in student.get("semesterRecords", []):
+            for enrollment in semester.get("courseEnrollments", []):
+                status = enrollment_status(enrollment)
+                context = (
+                    f"student={student.get('nim')} semester={semester.get('semesterNumber')} "
+                    f"course={enrollment.get('courseCode')}"
+                )
+                finding = ""
+                if status not in ENROLLMENT_STATUSES:
+                    finding = f"status enrollment tidak dikenal: {status!r}"
+                elif enrollment.get("courseCode") not in course_codes:
+                    finding = "referensi mata kuliah tidak ditemukan"
+                elif status == "completed" and enrollment.get("grade") is None:
+                    finding = "completed enrollment wajib memiliki grade"
+                elif status == "completed" and enrollment.get("gradePoint") is None:
+                    finding = "completed enrollment wajib memiliki gradePoint"
+                elif status == "completed" and not enrollment.get("recordId"):
+                    finding = "completed enrollment wajib memiliki recordId"
+                if finding:
+                    error_count += 1
+                    if len(errors) < 20:
+                        errors.append(f"{context}: {finding}")
+    if error_count > len(errors):
+        errors.append(f"... {error_count - len(errors)} error lain tidak ditampilkan")
+    return errors
+
+
+def write_reconciliation(path: Path, reconciliation: dict) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(reconciliation, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise CommandError(f"Laporan rekonsiliasi tidak dapat ditulis: {exc}") from exc
 
 
 def load_dataset(path: Path) -> tuple[dict, str]:
@@ -70,6 +211,11 @@ def load_dataset(path: Path) -> tuple[dict, str]:
     }
     if invalid_counts:
         raise CommandError(f"Jumlah katalog v5 tidak sesuai kontrak: {invalid_counts}")
+    contract_errors = enrollment_contract_errors(dataset)
+    if contract_errors:
+        raise CommandError(
+            "Kontrak enrollment v5 tidak valid sebelum import: " + "; ".join(contract_errors)
+        )
     return dataset, hashlib.sha256(raw).hexdigest()
 
 
@@ -128,6 +274,8 @@ class Importer:
         }
         self.users = ensure_demo_assignments()
         self.counts: dict[str, int] = defaultdict(int)
+        self.source_counts = source_inventory(dataset)
+        self.skipped: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     def run(self) -> dict[str, int]:
         self.import_academic_governance()
@@ -139,6 +287,33 @@ class Importer:
         self.import_students(curriculum, courses)
         self.import_tasks(curriculum)
         return dict(self.counts)
+
+    def record_skip(self, category: str, reason: str, count: int = 1) -> None:
+        if count:
+            self.skipped[category][reason] += count
+
+    def reconciliation(self) -> dict:
+        skipped = {category: dict(reasons) for category, reasons in self.skipped.items()}
+        for source_key, imported_key in RECONCILIATION_COVERAGE.items():
+            source_count = self.source_counts.get(source_key, 0)
+            imported_count = self.counts.get(imported_key, 0) if imported_key else 0
+            already_skipped = sum(skipped.get(source_key, {}).values())
+            gap = source_count - imported_count - already_skipped
+            if gap > 0:
+                skipped.setdefault(source_key, {})["not_in_current_import_scope"] = gap
+        return {
+            "contract": "obe-v5-import-reconciliation/1",
+            "schema_version": self.dataset["schemaVersion"],
+            "source_checksum": self.checksum,
+            "student_limit": self.student_limit,
+            "source": dict(sorted(self.source_counts.items())),
+            "imported": dict(sorted(self.counts.items())),
+            "skipped": {
+                category: dict(sorted(reasons.items()))
+                for category, reasons in sorted(skipped.items())
+            },
+            "errors": [],
+        }
 
     def import_academic_governance(self) -> None:
         registry = self.dataset.get("academicRuleRegistry") or sample_rule_registry()
@@ -929,9 +1104,11 @@ class Importer:
         EnrollmentPlan = self.models["plan"]
         AcademicResult = self.models["result"]
         User = apps.get_model(settings.AUTH_USER_MODEL)
-        students = self.dataset.get("students", [])
+        all_students = self.dataset.get("students", [])
+        students = all_students
         if self.student_limit is not None:
             students = students[: self.student_limit]
+            self.record_skip("students", "student_limit", len(all_students) - len(students))
         for index, item in enumerate(students):
             if index == 0:
                 user = self.users["mahasiswa"]
@@ -1007,8 +1184,13 @@ class Importer:
                 )
                 self.counts["plans"] += 1
                 for enrollment in enrollments:
+                    status = enrollment_status(enrollment)
+                    if status != "completed":
+                        self.record_skip("academic_results", status)
+                        continue
                     course = courses.get(enrollment["courseCode"])
                     if course is None:
+                        self.record_skip("academic_results", "unknown_course")
                         continue
                     AcademicResult.objects.update_or_create(
                         student=student,
@@ -1019,7 +1201,7 @@ class Importer:
                             "academic_year": semester["academicYear"],
                             "semester": semester["semesterNumber"],
                             "credits": enrollment["sks"],
-                            "letter": enrollment.get("grade", ""),
+                            "letter": enrollment["grade"],
                             "grade_point": decimal(enrollment.get("gradePoint")),
                             "passed": enrollment.get("passed", False),
                             "source_type": enrollment.get("source", "sample-v5")[:24],
@@ -1106,14 +1288,54 @@ class Command(BaseCommand):
             default=None,
             help="Batasi jumlah mahasiswa yang diimpor; default mengimpor semua record pada file",
         )
+        parser.add_argument(
+            "--report",
+            type=Path,
+            default=None,
+            help="Tulis laporan rekonsiliasi JSON source/imported/skipped/errors",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
         path = options["path"]
         student_limit = options["student_limit"]
+        report_path = options["report"]
         if student_limit is not None and student_limit < 0:
             raise CommandError("--student-limit tidak boleh negatif")
-        dataset, checksum = load_dataset(path)
-        counts = Importer(dataset, checksum, student_limit=student_limit).run()
+        try:
+            dataset, checksum = load_dataset(path)
+        except CommandError as exc:
+            if report_path is not None:
+                write_reconciliation(
+                    report_path,
+                    {
+                        "contract": "obe-v5-import-reconciliation/1",
+                        "schema_version": None,
+                        "source_checksum": None,
+                        "student_limit": student_limit,
+                        "source": {},
+                        "imported": {},
+                        "skipped": {},
+                        "errors": [str(exc)],
+                    },
+                )
+            raise
+        importer = Importer(dataset, checksum, student_limit=student_limit)
+        try:
+            counts = importer.run()
+        except Exception as exc:
+            if report_path is not None:
+                reconciliation = importer.reconciliation()
+                reconciliation["errors"] = [f"{type(exc).__name__}: {exc}"]
+                write_reconciliation(report_path, reconciliation)
+            raise
+        reconciliation = importer.reconciliation()
+        if report_path is not None:
+            write_reconciliation(report_path, reconciliation)
         summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
-        self.stdout.write(self.style.SUCCESS(f"Import OBE v5 selesai ({summary})"))
+        skipped = sum(
+            count for reasons in reconciliation["skipped"].values() for count in reasons.values()
+        )
+        self.stdout.write(
+            self.style.SUCCESS(f"Import OBE v5 selesai ({summary}; skipped={skipped})")
+        )
