@@ -37,7 +37,28 @@
 - name: Deny inbound by default
   community.general.ufw: {direction: incoming, policy: deny}
 - name: Allow managed SSH
-  community.general.ufw: {rule: limit, port: "{{ obe_ssh_port }}", proto: tcp}
+  community.general.ufw:
+    rule: limit
+    port: "{{ obe_ssh_port }}"
+    proto: tcp
+    from_ip: "{{ obe_admin_vpn_cidr }}"
+- name: Require named administration SSH keys
+  ansible.builtin.assert:
+    that:
+      - obe_admin_ssh_users | length > 0
+      - item.name | length > 0
+      - item.key is match('^ssh-(ed25519|rsa) ')
+    fail_msg: At least one named administrator SSH public key is required
+  loop: "{{ obe_admin_ssh_users }}"
+  when: obe_deploy_enabled | bool
+- name: Install administration SSH keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.key }}"
+    state: present
+    exclusive: false
+  loop: "{{ obe_admin_ssh_users }}"
+  no_log: true
 - name: Allow HTTPS
   community.general.ufw: {rule: allow, port: "443", proto: tcp}
 - name: Enable firewall

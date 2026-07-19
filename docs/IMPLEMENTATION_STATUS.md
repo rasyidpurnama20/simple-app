@@ -4,7 +4,7 @@ Baseline ini menyediakan aplikasi runnable, schema/migration, service determinis
 
 | Area | Tersedia | Gate lanjutan lingkungan institusi |
 |---|---|---|
-| Platform | Modular boundary, lima profil, SOPS, immutable-digest Compose, Ansible, PostgreSQL concurrency guard, private evidence CAS, bounded queues, outbox/inbox, OTLP telemetry, migrations, audit, flags, rules | Host-kosong/reboot/restore rehearsal, broker/worker fault injection, alert rehearsal, load test, image digest approval |
+| Platform | Modular boundary, lima profil, SOPS, immutable-digest Compose, Ansible, PostgreSQL concurrency guard, private evidence CAS, bounded queues, outbox/inbox, OTLP telemetry, scoped RBAC/MFA, append-only audit, versioned flags/kill switches, migrations dan rules | Host-kosong/reboot/restore rehearsal, authenticated DAST/pentest, broker/worker fault injection, alert rehearsal, load test, image digest approval |
 | OBE core | Versioned curriculum, seed 5/12/18/31/77, RPS, asesmen, evidence, attainment, CQI models | UAT workflow penuh dan golden calculation institusi |
 | Analytics | Semantic JSON contract, ETag, local ECharts, table fallback | Semua 8 visual, low-n policy, data 10× pilot |
 | AI | LiteLLM-only gateway, data-class guard, AI-off fallback | Golden eval, model benchmark, quota tuning |

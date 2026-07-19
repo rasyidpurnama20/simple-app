@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
+from obe.identity.services import can
+from obe.shared.feature_flags import FlagContext, kill_switch_allows
 from obe.shared.telemetry import record_ai, set_operational_gauge, span
 
 
@@ -25,12 +27,25 @@ class GatewayResult:
 
 
 def complete(
-    *, model_alias: str, messages: list[dict], data_class: str, timeout: int = 20
+    *,
+    model_alias: str,
+    messages: list[dict],
+    data_class: str,
+    timeout: int = 20,
+    principal=None,
+    scope_type: str = "global",
+    scope_id: str = "*",
 ) -> GatewayResult:
     started = time.monotonic()
     if not settings.OBE_AI_ENABLED:
         record_ai(model_alias=model_alias, tokens=0, outcome="disabled", duration=0)
         raise AIDisabled("Fitur AI sedang dinonaktifkan; alur akademik tetap tersedia")
+    if not kill_switch_allows("ai", context=FlagContext(environment=settings.OBE_ENV)):
+        raise AIDisabled("Kill switch AI sedang aktif")
+    if principal is not None and not can(
+        principal, "ai.use", scope_type=scope_type, scope_id=scope_id
+    ):
+        raise PermissionError("Principal tidak memiliki izin AI pada scope ini")
     if data_class in {"restricted-exam", "personal"} and model_alias == "external-approved":
         record_ai(model_alias=model_alias, tokens=0, outcome="policy_denied", duration=0)
         raise PermissionError("Data restricted/personal tidak boleh dikirim ke provider eksternal")

@@ -137,6 +137,7 @@ services:
 
   worker-ai:
     <<: *worker
+    networks: [application, data, ai, telemetry]
     command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "ai", "--concurrency=2", "--prefetch-multiplier=1", "--max-tasks-per-child=50"]
 
   worker-reports:
@@ -153,6 +154,7 @@ services:
 
   worker-sync:
     <<: *worker
+    networks: [application, data, exam-edge, telemetry]
     command: ["celery", "-A", "config", "worker", "-l", "INFO", "-Q", "sync", "--concurrency=2", "--prefetch-multiplier=1"]
 
   worker-batch:
@@ -174,7 +176,7 @@ services:
       - {source: nginx_config, target: /etc/nginx/nginx.conf}
     volumes:
       - "${OBE_DATA_ROOT:-/srv/obe}/tls:/etc/nginx/tls:ro"
-    networks: [public, application]
+    networks: [public, application, administration]
     depends_on:
       web: {condition: service_healthy}
     healthcheck:
@@ -204,3 +206,6 @@ networks:
   application: {internal: true}
   data: {name: obe-data, internal: true}
   telemetry: {name: obe-telemetry, internal: true}
+  ai: {name: obe-ai, internal: true}
+  administration: {name: obe-administration, internal: true}
+  exam-edge: {name: obe-exam-edge, internal: true}

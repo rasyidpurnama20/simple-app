@@ -26,7 +26,13 @@ def managed_configuration(profile: str = "production") -> tuple[dict, dict[str, 
         "OBE_ENV": profile,
         "DEBUG": False,
         "SECURE_SSL_REDIRECT": True,
+        "SESSION_COOKIE_SECURE": True,
+        "CSRF_COOKIE_SECURE": True,
         "ALLOWED_HOSTS": [f"{profile}.example.invalid"],
+        "CSRF_TRUSTED_ORIGINS": [f"https://{profile}.example.invalid"],
+        "OBE_ADMIN_NETWORKS": ["10.70.0.0/24"],
+        "OBE_LOGIN_LOCK_THRESHOLD": 5,
+        "OBE_LOGIN_LOCK_SECONDS": 900,
         "DATABASES": {
             "default": {
                 "ENGINE": "django.db.backends.postgresql",

@@ -3,6 +3,8 @@ from django.contrib import admin
 from obe.shared.models import (
     AcademicRule,
     AuditEvent,
+    AuditReference,
+    AuditSensitivePayload,
     ConsumerCursor,
     FeatureFlag,
     FileManifest,
@@ -38,6 +40,15 @@ class ReadOnlyOperationalAdmin(admin.ModelAdmin):
 
 
 admin.site.register(
-    [OutboxEvent, InboxEvent, ConsumerCursor, JobExecution], ReadOnlyOperationalAdmin
+    [
+        OutboxEvent,
+        InboxEvent,
+        ConsumerCursor,
+        JobExecution,
+        AuditReference,
+        AuditSensitivePayload,
+    ],
+    ReadOnlyOperationalAdmin,
 )
-admin.site.register([AcademicRule, FeatureFlag, FileManifest])
+admin.site.register([AcademicRule, FileManifest])
+admin.site.register(FeatureFlag, ReadOnlyOperationalAdmin)

@@ -14,10 +14,10 @@
 | 08 | Valkey/RabbitMQ/Celery | queue policy bounded/DLQ, worker isolation, idempotent job/lease/cancel, `PR08_PR10_ACCEPTANCE.md` | Implemented |
 | 09 | Transactional outbox | standardized envelope, retry/dead publisher, inbox/cursor consumer, reconciliation | Implemented |
 | 10 | Observability dan SLO | OTLP app instrumentation, Collector/Prometheus/Loki/Tempo/Grafana, alerts/dashboard/redaction | Implemented |
-| 11 | Security baseline | middleware, Nginx, `SECURITY.md` | Baseline |
-| 12 | Identity/RBAC/scope | `identity.RoleAssignment`, permission service | Baseline |
-| 13 | Audit append-only | `shared.AuditEvent` dan integrity hash | Baseline |
-| 14 | Feature flag | `shared.FeatureFlag`, AI kill switch | Baseline |
+| 11 | Security baseline | layered middleware/Nginx, deny-by-default zones, admin VPN/key, security tests, `PR11_PR14_ACCEPTANCE.md` | Implemented |
+| 12 | Identity/RBAC/scope | account lock/MFA/reset, scoped assignment, permission epoch dan background snapshot | Implemented |
+| 13 | Audit append-only | complete audit context, redaction/separation, DB guard, hash-chain, signed export/retention | Implemented |
+| 14 | Feature flag | versioned state/scope, activation evidence, cache invalidation, kill switch/job snapshot | Implemented |
 | 15 | Academic rule registry | `shared.AcademicRule`, deterministic decision | Baseline |
 | 16 | Cohort rule packages | `shared.rules` grade/SKS/graduation | Baseline |
 | 17 | Explanation/override/appeal | decision trace dan audit primitives | Baseline |

@@ -1,13 +1,18 @@
 import hashlib
+import ipaddress
 import logging
 import time
 import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth import logout
 from django.db import connection
 from django.http import JsonResponse
+from django.shortcuts import redirect
 
+from obe.identity.services import account_security
+from obe.shared.security import enforce_rate, policy_for_path
 from obe.shared.telemetry import (
     record_http,
     record_query,
@@ -137,4 +142,80 @@ class SecurityHeadersMiddleware:
         response = self.get_response(request)
         response.setdefault("Content-Security-Policy", self.POLICY)
         response.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        if request.path.startswith(("/accounts/", "/admin/")):
+            response.setdefault("Cache-Control", "no-store")
         return response
+
+
+class RateLimitMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        policy = policy_for_path(request.path)
+        if policy:
+            allowed, limit = enforce_rate(request, policy)
+            if not allowed:
+                response = JsonResponse(
+                    {"error": {"code": "rate_limited", "detail": "Terlalu banyak permintaan"}},
+                    status=429,
+                )
+                response["Retry-After"] = str(policy.window_seconds)
+                response["X-RateLimit-Limit"] = str(limit)
+                return response
+        return self.get_response(request)
+
+
+class AdministrationBoundaryMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.networks = [
+            ipaddress.ip_network(value)
+            for value in getattr(settings, "OBE_ADMIN_NETWORKS", ["127.0.0.0/8", "::1/128"])
+        ]
+
+    def __call__(self, request):
+        if request.path.startswith("/admin/"):
+            try:
+                address = ipaddress.ip_address(request.META.get("REMOTE_ADDR", ""))
+            except ValueError:
+                address = None
+            if address is None or not any(address in network for network in self.networks):
+                return JsonResponse(
+                    {"error": {"code": "admin_network_denied", "detail": "Akses admin ditolak"}},
+                    status=403,
+                )
+        return self.get_response(request)
+
+
+class IdentitySessionMiddleware:
+    ALLOWED_MFA_PATHS = {
+        "/accounts/mfa/",
+        "/accounts/logout/",
+        "/healthz/",
+    }
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated:
+            profile = account_security(request.user)
+            epoch = request.session.get("obe_permission_epoch")
+            if epoch is None:
+                request.session["obe_permission_epoch"] = profile.permission_epoch
+            elif epoch != profile.permission_epoch:
+                logout(request)
+                return JsonResponse(
+                    {"error": {"code": "session_revoked", "detail": "Otorisasi berubah"}},
+                    status=401,
+                )
+            if (
+                profile.mfa_enabled
+                and not request.session.get("obe_mfa_verified", False)
+                and request.path not in self.ALLOWED_MFA_PATHS
+            ):
+                return redirect("mfa-verify")
+        return self.get_response(request)

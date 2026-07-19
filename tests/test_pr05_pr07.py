@@ -61,7 +61,7 @@ def deployment_environment(tmp_path: Path) -> dict[str, str]:
 
 
 def uploaded(content: bytes = b"evidence", name: str = "evidence.pdf") -> SimpleUploadedFile:
-    return SimpleUploadedFile(name, content, content_type="application/pdf")
+    return SimpleUploadedFile(name, b"%PDF-1.7\n" + content, content_type="application/pdf")
 
 
 def test_pr05_has_separate_digest_pinned_compose_contracts_and_ansible():

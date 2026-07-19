@@ -1,3 +1,5 @@
+import hashlib
+import json
 import uuid
 
 from django.conf import settings
@@ -53,12 +55,22 @@ class VersionedModel(TimeStampedModel):
         ]
 
 
+class AppendOnlyAuditQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("AuditEvent bersifat append-only")
+
+    def delete(self):
+        raise ValidationError("AuditEvent tidak boleh dihapus")
+
+
 class AuditEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    occurred_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    occurred_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
     actor_id = models.CharField(max_length=64, blank=True)
     actor_label = models.CharField(max_length=160, blank=True)
     actor_scope = models.CharField(max_length=160, blank=True)
+    actor_role = models.CharField(max_length=40, blank=True)
+    assignment_reference = models.CharField(max_length=80, blank=True)
     action = models.CharField(max_length=120, db_index=True)
     object_type = models.CharField(max_length=120, db_index=True)
     object_id = models.CharField(max_length=80, db_index=True)
@@ -70,11 +82,52 @@ class AuditEvent(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=255, blank=True)
     outcome = models.CharField(max_length=40, default="success")
+    previous_hash = models.CharField(max_length=64, blank=True)
     integrity_hash = models.CharField(max_length=64, blank=True)
+    retention_until = models.DateField(null=True, blank=True)
+
+    objects = models.Manager.from_queryset(AppendOnlyAuditQuerySet)()
+
+    def canonical_payload(self) -> dict:
+        return {
+            "id": str(self.id),
+            "actor_id": self.actor_id,
+            "actor_label": self.actor_label,
+            "actor_scope": self.actor_scope,
+            "actor_role": self.actor_role,
+            "assignment_reference": self.assignment_reference,
+            "action": self.action,
+            "object_type": self.object_type,
+            "object_id": self.object_id,
+            "summary": self.summary,
+            "before": self.before,
+            "after": self.after,
+            "reason": self.reason,
+            "correlation_id": str(self.correlation_id),
+            "ip_address": str(self.ip_address or ""),
+            "user_agent": self.user_agent,
+            "outcome": self.outcome,
+            "occurred_at": self.occurred_at.isoformat(),
+            "retention_until": str(self.retention_until or ""),
+            "previous_hash": self.previous_hash,
+        }
+
+    def expected_hash(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload(), sort_keys=True, separators=(",", ":"), default=str
+        )
+        return hashlib.sha256(canonical.encode()).hexdigest()
 
     def save(self, *args, **kwargs):
         if self.pk and type(self).objects.filter(pk=self.pk).exists():
             raise ValidationError("AuditEvent bersifat append-only")
+        if not self.previous_hash:
+            previous = (
+                type(self).objects.order_by("-occurred_at", "-id").only("integrity_hash").first()
+            )
+            self.previous_hash = previous.integrity_hash if previous else "0" * 64
+        if not self.integrity_hash:
+            self.integrity_hash = self.expected_hash()
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -83,6 +136,33 @@ class AuditEvent(models.Model):
     class Meta:
         ordering = ["-occurred_at"]
         indexes = [models.Index(fields=["object_type", "object_id", "occurred_at"])]
+
+
+class AuditSensitivePayload(models.Model):
+    audit = models.OneToOneField(
+        AuditEvent,
+        on_delete=models.PROTECT,
+        related_name="sensitive_payload",
+    )
+    payload = models.JSONField(default=dict)
+    classification = models.CharField(max_length=32, default="confidential")
+    retention_until = models.DateField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class AuditReference(models.Model):
+    source_type = models.CharField(max_length=80)
+    source_id = models.CharField(max_length=80)
+    audit = models.ForeignKey(AuditEvent, on_delete=models.PROTECT, related_name="references")
+    label = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_type", "source_id", "audit"],
+                name="audit_reference_unique",
+            )
+        ]
 
 
 class OutboxEvent(models.Model):
@@ -199,6 +279,8 @@ class JobExecution(models.Model):
     correlation_id = models.UUIDField(default=uuid.uuid4, db_index=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
     payload_hash = models.CharField(max_length=64)
+    authorization_snapshot = models.JSONField(default=dict, blank=True)
+    feature_snapshot = models.JSONField(default=dict, blank=True)
     result = models.JSONField(default=dict, blank=True)
     result_hash = models.CharField(max_length=64, blank=True)
     progress = models.PositiveSmallIntegerField(default=0)
@@ -240,8 +322,30 @@ class FeatureFlag(VersionedModel):
     state = models.CharField(max_length=20, choices=State.choices, default=State.DISABLED)
     scope = models.JSONField(default=dict, blank=True)
     owner = models.CharField(max_length=160)
+    activation_date = models.DateTimeField(null=True, blank=True)
+    target_users = models.JSONField(default=list, blank=True)
     acceptance_evidence = models.TextField(blank=True)
     rollback_plan = models.TextField(blank=True)
+    kill_switch = models.BooleanField(default=False)
+
+    def clean(self):
+        super().clean()
+        valid_scope = {"global", "module", "roles", "cohorts", "courses", "environment"}
+        if set(self.scope) - valid_scope:
+            raise ValidationError("Scope feature flag tidak dikenal")
+        enabled = self.state not in {self.State.DISABLED, self.State.RETIRED}
+        if enabled and not all(
+            [
+                self.owner.strip(),
+                self.activation_date,
+                self.target_users,
+                self.acceptance_evidence.strip(),
+                self.rollback_plan.strip(),
+            ]
+        ):
+            raise ValidationError(
+                "Aktivasi feature flag memerlukan owner, tanggal, target, evidence, dan rollback"
+            )
 
     class Meta:
         constraints = [

@@ -61,6 +61,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "obe.shared.middleware.AdministrationBoundaryMiddleware",
+    "obe.shared.middleware.RateLimitMiddleware",
+    "obe.shared.middleware.IdentitySessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "obe.shared.middleware.CorrelationIdMiddleware",
@@ -139,10 +142,20 @@ CLAMAV_PORT = env.int("CLAMAV_PORT", default=3310)
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_NAME = (
+    "__Host-obe_session" if OBE_ENV in {"production", "staging"} else "obe_session"
+)
 CSRF_COOKIE_SAMESITE = "Lax"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+CSRF_TRUSTED_ORIGINS = env.list("OBE_CSRF_TRUSTED_ORIGINS", default=[])
+OBE_ADMIN_NETWORKS = env.list("OBE_ADMIN_NETWORKS", default=["127.0.0.0/8", "::1/128"])
+OBE_OUTBOUND_ALLOWED_HOSTS = env.list("OBE_OUTBOUND_ALLOWED_HOSTS", default=[])
+OBE_LOGIN_LOCK_THRESHOLD = env.int("OBE_LOGIN_LOCK_THRESHOLD", default=5)
+OBE_LOGIN_LOCK_SECONDS = env.int("OBE_LOGIN_LOCK_SECONDS", default=900)
+DEFAULT_FROM_EMAIL = env("OBE_DEFAULT_FROM_EMAIL", default="no-reply@obe.invalid")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -191,6 +204,10 @@ CELERY_BEAT_SCHEDULE = {
     "collect-operational-metrics": {
         "task": "obe.shared.tasks.collect_operational_metrics",
         "schedule": 60.0,
+    },
+    "enforce-audit-retention": {
+        "task": "obe.shared.tasks.enforce_audit_retention",
+        "schedule": 86_400.0,
     },
     "schedule-task-reminders": {
         "task": "obe.academic_lifecycle.tasks.schedule_task_reminders",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import os
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -112,12 +113,34 @@ def validate_runtime_configuration(
         raise ImproperlyConfigured(f"OBE_ENV wajib eksplisit bernilai {expected_profile}")
     if namespace.get("DEBUG") is not False or namespace.get("SECURE_SSL_REDIRECT") is not True:
         raise ImproperlyConfigured("Mode keamanan lingkungan terkelola tidak valid")
+    if (
+        namespace.get("SESSION_COOKIE_SECURE") is not True
+        or namespace.get("CSRF_COOKIE_SECURE") is not True
+    ):
+        raise ImproperlyConfigured("Cookie terkelola wajib secure")
 
     hosts = namespace.get("ALLOWED_HOSTS", [])
     if not hosts or any(host in {"*", "localhost", "127.0.0.1"} for host in hosts):
         raise ImproperlyConfigured(
             "OBE_ALLOWED_HOSTS harus berisi hostname terkelola yang spesifik"
         )
+    csrf_origins = namespace.get("CSRF_TRUSTED_ORIGINS", [])
+    if not csrf_origins or any(not str(origin).startswith("https://") for origin in csrf_origins):
+        raise ImproperlyConfigured("CSRF trusted origins wajib eksplisit dan menggunakan HTTPS")
+    try:
+        admin_networks = [
+            ipaddress.ip_network(value) for value in namespace.get("OBE_ADMIN_NETWORKS", [])
+        ]
+    except ValueError as exc:
+        raise ImproperlyConfigured("OBE_ADMIN_NETWORKS tidak valid") from exc
+    if not admin_networks or any(
+        network.prefixlen == 0 or network.is_loopback for network in admin_networks
+    ):
+        raise ImproperlyConfigured("Admin wajib dibatasi ke jaringan VPN/allowlist")
+    if not 3 <= int(namespace.get("OBE_LOGIN_LOCK_THRESHOLD", 0)) <= 10:
+        raise ImproperlyConfigured("Threshold account lock harus 3–10")
+    if not 300 <= int(namespace.get("OBE_LOGIN_LOCK_SECONDS", 0)) <= 86_400:
+        raise ImproperlyConfigured("Durasi account lock harus 300–86400 detik")
 
     database = namespace.get("DATABASES", {}).get("default", {})
     if database.get("ENGINE") != "django.db.backends.postgresql":

@@ -176,7 +176,7 @@ def test_attendance_and_rps_publish():
 def test_evidence_is_content_addressed(settings, tmp_path):
     settings.EVIDENCE_ROOT = tmp_path
     uploaded = SimpleUploadedFile(
-        "evidence.pdf", b"verified evidence", content_type="application/pdf"
+        "evidence.pdf", b"%PDF-1.7\nverified evidence", content_type="application/pdf"
     )
     record = store(
         uploaded=uploaded,
@@ -185,13 +185,22 @@ def test_evidence_is_content_addressed(settings, tmp_path):
         classification="internal",
     )
     target = tmp_path / record.manifest.content_path
-    assert target.read_bytes() == b"verified evidence"
+    assert target.read_bytes() == b"%PDF-1.7\nverified evidence"
     assert record.manifest.sha256 in record.manifest.content_path
     with pytest.raises(ValidationError):
         store(
             uploaded=SimpleUploadedFile("bad.exe", b"bad", content_type="application/octet-stream"),
             owner_id="24001",
             academic_object="submission:2",
+            classification="internal",
+        )
+    with pytest.raises(ValidationError, match="Signature file"):
+        store(
+            uploaded=SimpleUploadedFile(
+                "fake.pdf", b"not really a PDF", content_type="application/pdf"
+            ),
+            owner_id="24001",
+            academic_object="submission:3",
             classification="internal",
         )
 
@@ -221,6 +230,7 @@ class FakeResponse(io.BytesIO):
         return False
 
 
+@pytest.mark.django_db
 def test_ai_gateway_policy_success_and_fallback(settings, monkeypatch):
     settings.OBE_AI_ENABLED = True
     settings.LITELLM_URL = "http://gateway.internal"

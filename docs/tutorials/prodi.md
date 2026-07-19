@@ -7,8 +7,10 @@ Prodi memantau kesehatan kurikulum, menilai temuan sebelum aktivasi, dan memberi
 ## Masuk dan orientasi
 
 1. Buka <http://localhost:8000/accounts/login/>.
-2. Masuk dengan username `prodi` dan password lokal yang ditampilkan oleh `setup-local.sh`.
-3. Dashboard menampilkan agregat capaian CPL dari dataset sintetis v5. Status hijau menunjukkan snapshot tersedia, bukan persetujuan kurikulum.
+2. Kelola akun melalui layanan Prodi, lalu berikan role dan assignment yang selalu dibatasi aksi, object, periode, serta expiry. Self-assignment tidak diperbolehkan.
+3. Aktifkan fitur secara bertahap melalui flag `internal`/`pilot`/`general`; sertakan acceptance evidence dan rollback plan.
+4. Masuk dengan username `prodi` dan password lokal yang ditampilkan oleh `setup-local.sh`.
+5. Dashboard menampilkan agregat capaian CPL dari dataset sintetis v5. Status hijau menunjukkan snapshot tersedia, bukan persetujuan kurikulum.
 
 ## Tinjau kurikulum
 

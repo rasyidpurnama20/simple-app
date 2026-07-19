@@ -83,6 +83,8 @@ Deployment production memakai compose terpisah dengan image digest immutable dan
 
 Pekerjaan asinkron memakai antrean bounded dan worker terisolasi; perubahan domain diteruskan melalui outbox/inbox idempoten dan ditelusuri menggunakan correlation ID. Lihat [runbook antrean](docs/QUEUE_RUNBOOK.md), [domain event](docs/EVENTS_RUNBOOK.md), dan [observability](docs/OBSERVABILITY_RUNBOOK.md).
 
+Keamanan berlapis memakai rate limit per endpoint/aktor, scoped permission tunggal, account lock/MFA opsional, audit hash-chain append-only, serta feature flag dan kill switch berversi. Mulai dari [security runbook](docs/SECURITY_RUNBOOK.md).
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -144,7 +146,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 85 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 101 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence dan identity.
 
 ## Dokumentasi
 
@@ -152,6 +154,10 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Kontrak API](docs/API.md)
 - [Operasi, backup, dan restore](docs/OPERATIONS.md)
 - [Keamanan](docs/SECURITY.md)
+- [Baseline keamanan aplikasi dan jaringan](docs/SECURITY_RUNBOOK.md)
+- [Identity, RBAC, dan scoped assignment](docs/IDENTITY_RUNBOOK.md)
+- [Audit append-only dan signed export](docs/AUDIT_RUNBOOK.md)
+- [Feature flag dan kill switch](docs/FEATURE_FLAG_RUNBOOK.md)
 - [Lingkungan, SOPS, rotasi, dan revokasi secret](docs/SECRETS_RUNBOOK.md)
 - [Deployment reproducible](docs/DEPLOYMENT_RUNBOOK.md)
 - [PostgreSQL dan concurrency](docs/DATABASE_RUNBOOK.md)
@@ -166,6 +172,7 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Audit penerimaan PR-04](docs/PR04_ACCEPTANCE.md)
 - [Audit penerimaan PR-05–PR-07](docs/PR05_PR07_ACCEPTANCE.md)
 - [Audit penerimaan PR-08–PR-10](docs/PR08_PR10_ACCEPTANCE.md)
+- [Audit penerimaan PR-11–PR-14](docs/PR11_PR14_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

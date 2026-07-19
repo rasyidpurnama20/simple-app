@@ -2,6 +2,20 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
+from obe.identity.models import RoleAssignment
+
+
+def grant(user, *actions):
+    granter = get_user_model().objects.create_user(username=f"granter-{user.username}")
+    RoleAssignment.objects.create(
+        user=user,
+        role="gpm",
+        scope_type="global",
+        scope_id="*",
+        actions=list(actions),
+        granted_by=granter,
+    )
+
 
 @pytest.mark.django_db
 def test_health_and_readiness(client):
@@ -29,6 +43,7 @@ def test_dashboard_and_tasks_are_accessible(client):
 @pytest.mark.django_db
 def test_semantic_analytics_contract(client):
     user = get_user_model().objects.create_user(username="gpm", password="safe-test-password")
+    grant(user, "analytics.view")
     client.force_login(user)
     response = client.get(reverse("semantic-analytics"), {"metric": "attainment", "cohort": "2024"})
     assert response.status_code == 200
@@ -54,6 +69,7 @@ def test_semantic_analytics_contract(client):
 @pytest.mark.django_db
 def test_semantic_analytics_rejects_unknown_metric(client):
     user = get_user_model().objects.create_user(username="prodi", password="safe-test-password")
+    grant(user, "analytics.view")
     client.force_login(user)
     response = client.get(reverse("semantic-analytics"), {"metric": "secret"})
     assert response.status_code == 400

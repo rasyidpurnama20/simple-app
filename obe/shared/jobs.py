@@ -40,6 +40,8 @@ def create_job(
     payload: dict[str, Any],
     correlation_id: uuid.UUID | None = None,
     ttl_seconds: int | None = None,
+    authorization_snapshot: dict[str, Any] | None = None,
+    feature_snapshot: dict[str, Any] | None = None,
 ) -> tuple[JobExecution, bool]:
     if not task_name or len(task_name) > 180:
         raise ValueError("Nama task tidak valid")
@@ -57,6 +59,8 @@ def create_job(
                 "queue": queue,
                 "correlation_id": correlation_id or uuid.uuid4(),
                 "payload_hash": payload_hash,
+                "authorization_snapshot": authorization_snapshot or {},
+                "feature_snapshot": feature_snapshot or {},
                 "expires_at": timezone.now() + timedelta(seconds=ttl),
             },
         )
@@ -65,6 +69,20 @@ def create_job(
         ):
             raise ValueError("Idempotency key telah dipakai untuk task atau payload berbeda")
     return job, created
+
+
+def _snapshots_valid(job: JobExecution) -> bool:
+    if job.authorization_snapshot:
+        from obe.identity.services import validate_permission_snapshot
+
+        if not validate_permission_snapshot(job.authorization_snapshot):
+            return False
+    if job.feature_snapshot:
+        from obe.shared.feature_flags import validate_flag_snapshot
+
+        if not validate_flag_snapshot(job.feature_snapshot):
+            return False
+    return True
 
 
 def update_progress(job_id: uuid.UUID, *, generation: int, progress: int) -> bool:
@@ -116,6 +134,12 @@ def execute_job(
             job.finished_at = now
             job.save(update_fields=["status", "finished_at", "updated_at"])
             return JobOutcome("expired", {}, "task kedaluwarsa")
+        if not _snapshots_valid(job):
+            job.status = JobExecution.Status.CANCELLED
+            job.cancel_requested = True
+            job.finished_at = now
+            job.save(update_fields=["status", "cancel_requested", "finished_at", "updated_at"])
+            return JobOutcome("unauthorized", {}, "permission atau feature flag berubah")
         if (
             job.status == JobExecution.Status.RUNNING
             and job.lease_expires_at
@@ -167,7 +191,7 @@ def execute_job(
         return JobOutcome("failed", {}, _error_fingerprint(exc))
     with transaction.atomic():
         job = JobExecution.objects.select_for_update().get(id=job_id)
-        if job.generation != generation or job.cancel_requested:
+        if job.generation != generation or job.cancel_requested or not _snapshots_valid(job):
             job.status = JobExecution.Status.CANCELLED
             job.result = {}
             job.result_hash = ""

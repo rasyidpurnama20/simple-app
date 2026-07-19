@@ -1,15 +1,16 @@
-import hashlib
-import json
+import re
 import uuid
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any, TypeVar, cast
 
 from django.core.exceptions import ValidationError
-from django.db import OperationalError, models, transaction
+from django.db import OperationalError, connection, models, transaction
+from django.utils import timezone
 
 from obe.shared.events import DEFAULT_CONSUMERS, create_outbox_event
-from obe.shared.models import AuditEvent
+from obe.shared.models import AuditEvent, AuditReference, AuditSensitivePayload
 
 ModelT = TypeVar("ModelT", bound=models.Model)
 
@@ -22,9 +23,32 @@ class ActorContext:
     correlation_id: uuid.UUID = field(default_factory=uuid.uuid4)
 
 
-def _digest(payload: dict[str, Any]) -> str:
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(canonical.encode()).hexdigest()
+SENSITIVE_AUDIT_KEY = re.compile(
+    r"(password|secret|token|answer|prompt|student_number|nim|raw_grade|file_path)", re.I
+)
+REASON_REQUIRED_PREFIXES = (
+    "approval.",
+    "assessment.grade",
+    "export.",
+    "feature-flag.",
+    "import.",
+    "integration.write",
+    "override.",
+    "rule.",
+)
+
+
+def _audit_summary(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): "[redacted]" if SENSITIVE_AUDIT_KEY.search(str(key)) else _audit_summary(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_audit_summary(item) for item in value[:100]]
+    if isinstance(value, str):
+        return value[:500]
+    return value
 
 
 def record_change(
@@ -37,16 +61,31 @@ def record_change(
     before: dict[str, Any] | None = None,
     after: dict[str, Any] | None = None,
     reason: str = "",
+    actor_role: str = "",
+    assignment_reference: str = "",
+    ip_address: str | None = None,
+    user_agent: str = "",
+    outcome: str = "success",
+    sensitive_payload: dict[str, Any] | None = None,
+    retention_days: int = 2_555,
+    references: tuple[tuple[str, str, str], ...] = (),
     event_type: str | None = None,
     aggregate_version: int = 1,
     event_consumers: tuple[str, ...] = DEFAULT_CONSUMERS,
 ) -> AuditEvent:
-    before, after = before or {}, after or {}
+    if any(action.startswith(prefix) for prefix in REASON_REQUIRED_PREFIXES) and not reason.strip():
+        raise ValidationError("Aksi kritis wajib memiliki alasan audit")
+    before, after = _audit_summary(before or {}), _audit_summary(after or {})
     with transaction.atomic():
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ["obe-audit-chain"])
         audit = AuditEvent.objects.create(
             actor_id=actor.actor_id,
             actor_label=actor.label,
             actor_scope=actor.scope,
+            actor_role=actor_role,
+            assignment_reference=assignment_reference,
             action=action,
             object_type=object_type,
             object_id=object_id,
@@ -55,9 +94,27 @@ def record_change(
             after=after,
             reason=reason,
             correlation_id=actor.correlation_id,
-            integrity_hash=_digest(
-                {"actor": asdict(actor), "action": action, "object": object_id, "after": after}
-            ),
+            ip_address=ip_address,
+            user_agent=user_agent[:255],
+            outcome=outcome,
+            retention_until=(timezone.now() + timedelta(days=retention_days)).date(),
+        )
+        if sensitive_payload:
+            AuditSensitivePayload.objects.create(
+                audit=audit,
+                payload=sensitive_payload,
+                retention_until=(timezone.now() + timedelta(days=retention_days)).date(),
+            )
+        AuditReference.objects.bulk_create(
+            [
+                AuditReference(
+                    source_type=source_type,
+                    source_id=source_id,
+                    audit=audit,
+                    label=label,
+                )
+                for source_type, source_id, label in references
+            ]
         )
         if event_type:
             create_outbox_event(

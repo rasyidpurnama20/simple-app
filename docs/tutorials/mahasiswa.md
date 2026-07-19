@@ -7,8 +7,9 @@ Mahasiswa melihat tugas dan riwayat akademiknya sendiri tanpa memperoleh akses k
 ## Masuk
 
 1. Buka <http://localhost:8000/accounts/login/>.
-2. Masuk dengan username `mahasiswa` dan password lokal dari `setup-local.sh`.
-3. Akun demo ini dipetakan ke satu identitas mahasiswa sintetis dari fixture compact; tidak ada data mahasiswa produksi.
+2. Gunakan reset kredensial bila diperlukan dan selesaikan MFA jika akun mengaktifkannya. Sistem menolak ID mahasiswa lain walaupun URL diubah manual.
+3. Masuk dengan username `mahasiswa` dan password lokal dari `setup-local.sh`.
+4. Akun demo ini dipetakan ke satu identitas mahasiswa sintetis dari fixture compact; tidak ada data mahasiswa produksi.
 
 ## Lihat kemajuan pribadi
 

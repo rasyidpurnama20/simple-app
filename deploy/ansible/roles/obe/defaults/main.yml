@@ -7,6 +7,8 @@ obe_release_root: /opt/obe/current
 obe_release_source: ""
 obe_compose_file: deploy/server/compose.yml
 obe_ssh_port: 22
+obe_admin_vpn_cidr: 10.70.0.0/24
+obe_admin_ssh_users: []
 obe_tls_certificate_source: ""
 obe_tls_private_key_source: ""
 obe_backup_environment_source: ""
