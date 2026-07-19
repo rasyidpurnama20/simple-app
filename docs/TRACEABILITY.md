@@ -18,10 +18,10 @@
 | 12 | Identity/RBAC/scope | account lock/MFA/reset, scoped assignment, permission epoch dan background snapshot | Implemented |
 | 13 | Audit append-only | complete audit context, redaction/separation, DB guard, hash-chain, signed export/retention | Implemented |
 | 14 | Feature flag | versioned state/scope, activation evidence, cache invalidation, kill switch/job snapshot | Implemented |
-| 15 | Academic rule registry | `shared.AcademicRule`, deterministic decision | Baseline |
-| 16 | Cohort rule packages | `shared.rules` grade/SKS/graduation | Baseline |
-| 17 | Explanation/override/appeal | decision trace dan audit primitives | Baseline |
-| 18 | Academic integrity validation | `quality.IntegrityIssue` | Baseline |
+| 15 | Academic rule registry | registry/lifecycle maker-checker, immutable active, deterministic decision snapshot dan replay, `PR15_PR18_ACCEPTANCE.md` | Implemented |
+| 16 | Cohort rule packages | package legacy/current, grade/SKS/milestone/graduation berversi, resolver tepat-satu dan seed v5 | Implemented |
+| 17 | Explanation/override/appeal | evidence rows/explanation, override terpisah berversi dan banding state machine dengan audit | Implemented |
+| 18 | Academic integrity validation | validator reason-code, issue workflow/optimistic lock, revalidation dan official-use gate | Implemented |
 | 19 | Curriculum versions | `curriculum.CurriculumVersion`, checksum | Baseline |
 | 20 | 5 PL dan 12 CPL | idempotent `seed_demo` | Baseline |
 | 21 | 18 bahan kajian dan depth | idempotent `seed_demo`, `Outcome.depth` | Baseline |

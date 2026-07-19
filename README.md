@@ -24,7 +24,7 @@ Buka <http://localhost:8000>. Data demo dibuat otomatis.
 
 Password acak ditampilkan sekali oleh `setup-local.sh` dan tersimpan di `.env` privat. Seed demo otomatis ditolak saat mode production/non-debug.
 
-Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah dengan kode asli, pemetaan kurikulum, agregat capaian, dan empat riwayat mahasiswa sintetis. Detail provenance serta pemetaan model tersedia di [panduan dataset v5](docs/DATASET_V5.md).
+Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, 2 package cohort, 11 academic rule, pemetaan kurikulum, agregat capaian, dan empat riwayat mahasiswa sintetis. Detail provenance serta pemetaan model tersedia di [panduan dataset v5](docs/DATASET_V5.md).
 
 Untuk menghentikan aplikasi:
 
@@ -83,16 +83,16 @@ Deployment production memakai compose terpisah dengan image digest immutable dan
 
 Pekerjaan asinkron memakai antrean bounded dan worker terisolasi; perubahan domain diteruskan melalui outbox/inbox idempoten dan ditelusuri menggunakan correlation ID. Lihat [runbook antrean](docs/QUEUE_RUNBOOK.md), [domain event](docs/EVENTS_RUNBOOK.md), dan [observability](docs/OBSERVABILITY_RUNBOOK.md).
 
-Keamanan berlapis memakai rate limit per endpoint/aktor, scoped permission tunggal, account lock/MFA opsional, audit hash-chain append-only, serta feature flag dan kill switch berversi. Mulai dari [security runbook](docs/SECURITY_RUNBOOK.md).
+Keamanan berlapis memakai rate limit per endpoint/aktor, scoped permission tunggal, account lock/MFA opsional, audit hash-chain append-only, serta feature flag dan kill switch berversi. Keputusan akademik memakai rule/package immutable, snapshot replay, override terpisah, dan gate integritas data; lihat [runbook aturan akademik](docs/ACADEMIC_RULES_RUNBOOK.md) dan [runbook integritas data](docs/DATA_INTEGRITY_RUNBOOK.md).
 
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
 |---|---|---|
-| Prodi | katalog, gate aktivasi, approval | [Tutorial Prodi](docs/tutorials/prodi.md) |
-| GPM | verifikasi mutu dan capaian | [Tutorial GPM](docs/tutorials/gpm.md) |
-| Pengampu | pemetaan CPMK dan bukti asesmen | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
-| Mahasiswa | tugas dan kemajuan pribadi | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
+| Prodi | versi rule/package, aktivasi maker-checker, override | [Tutorial Prodi](docs/tutorials/prodi.md) |
+| GPM | review rule, integrity issue, verifikasi dan banding | [Tutorial GPM](docs/tutorials/gpm.md) |
+| Pengampu | evidence row, explanation, koreksi dan pengajuan override | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
+| Mahasiswa | keputusan pribadi, explanation dan banding | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
 
 Fungsi DPA, koordinator, pembimbing, penguji, mentor, dan TPMF dijalankan sebagai assignment terbatas dari peran utama. Lihat [indeks tutorial aktor](docs/tutorials/README.md) untuk batas scope-nya.
 
@@ -146,7 +146,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 101 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence dan identity.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 118 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence, identity, dan shared decision engine.
 
 ## Dokumentasi
 
@@ -158,6 +158,8 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Identity, RBAC, dan scoped assignment](docs/IDENTITY_RUNBOOK.md)
 - [Audit append-only dan signed export](docs/AUDIT_RUNBOOK.md)
 - [Feature flag dan kill switch](docs/FEATURE_FLAG_RUNBOOK.md)
+- [Aturan, package cohort, decision, override, dan banding](docs/ACADEMIC_RULES_RUNBOOK.md)
+- [Validasi dan gate integritas data akademik](docs/DATA_INTEGRITY_RUNBOOK.md)
 - [Lingkungan, SOPS, rotasi, dan revokasi secret](docs/SECRETS_RUNBOOK.md)
 - [Deployment reproducible](docs/DEPLOYMENT_RUNBOOK.md)
 - [PostgreSQL dan concurrency](docs/DATABASE_RUNBOOK.md)
@@ -173,6 +175,7 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Audit penerimaan PR-05–PR-07](docs/PR05_PR07_ACCEPTANCE.md)
 - [Audit penerimaan PR-08–PR-10](docs/PR08_PR10_ACCEPTANCE.md)
 - [Audit penerimaan PR-11–PR-14](docs/PR11_PR14_ACCEPTANCE.md)
+- [Audit penerimaan PR-15–PR-18](docs/PR15_PR18_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

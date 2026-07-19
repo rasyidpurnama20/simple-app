@@ -24,6 +24,14 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 2. Pilih tugas **Verifikasi capaian CPL dataset v5**.
 3. Jika ada actual kosong, coverage tidak masuk akal, atau formula version berubah tanpa migration note, kembalikan ke pemilik data.
 
+## Review rule dan integrity issue
+
+1. Pada rule `draft`, periksa required input, expression, priority, severity, cohort, dan effective period. Reviewer tidak boleh sama dengan maker.
+2. Jalankan boundary, missing-input, conflict, serta replay test. Missing input harus menghasilkan `indeterminate`.
+3. Untuk integrity issue, cocokkan reason code, source snapshot/checksum, evidence, owner, dan due date.
+4. Setelah pemilik memperbaiki sumber, jalankan revalidation. Pindahkan `resolved` ke `verified` hanya bila finding tidak muncul lagi; update stale akan ditolak oleh lock version.
+5. Saat mereview banding, gunakan evidence row dan source version dari decision snapshot. Pemohon tidak boleh menjadi reviewer.
+
 ## Hasil yang diharapkan
 
 - GPM dapat membedakan agregat program dan mata kuliah.

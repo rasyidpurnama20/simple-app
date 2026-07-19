@@ -22,6 +22,45 @@ CURRENT = (
     (0, "E", 0),
 )
 
+RULE_PACKAGE_POLICIES: dict[str, dict[str, Any]] = {
+    "LEGACY-ABCDE": {
+        "cohort_from": 2020,
+        "cohort_to": 2023,
+        "grade_scheme": LEGACY,
+        "minimum_passing_grade": "C",
+        "minimum_thesis_grade": "B",
+        "progress_milestones": (
+            ("end", 3, None, None),
+            ("end", 7, None, None),
+            ("end", 14, None, None),
+        ),
+    },
+    "CURRENT-AABBC": {
+        "cohort_from": 2024,
+        "cohort_to": None,
+        "grade_scheme": CURRENT,
+        "minimum_passing_grade": "C",
+        "minimum_thesis_grade": "B",
+        "progress_milestones": (
+            ("start", 3, 25, Decimal("2.50")),
+            ("start", 5, 50, Decimal("2.50")),
+            ("start", 13, 108, Decimal("2.50")),
+        ),
+    },
+}
+
+
+def package_for_cohort(cohort: int) -> str:
+    matches = [
+        code
+        for code, policy in RULE_PACKAGE_POLICIES.items()
+        if cohort >= policy["cohort_from"]
+        and (policy["cohort_to"] is None or cohort <= policy["cohort_to"])
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"Cohort {cohort} tidak memiliki tepat satu paket aturan")
+    return matches[0]
+
 
 def normalize_score(raw: Decimal | float, maximum: Decimal | float) -> Decimal:
     raw_d, max_d = Decimal(str(raw)), Decimal(str(maximum))
@@ -36,7 +75,9 @@ def grade_for(score: Decimal | float, scheme: str = "CURRENT-AABBC") -> tuple[st
     value = Decimal(str(score))
     if not 0 <= value <= 100:
         raise ValueError("nilai harus 0–100")
-    thresholds = CURRENT if scheme == "CURRENT-AABBC" else LEGACY
+    if scheme not in RULE_PACKAGE_POLICIES:
+        raise ValueError("paket skala nilai tidak dikenal")
+    thresholds = RULE_PACKAGE_POLICIES[scheme]["grade_scheme"]
     for minimum, letter, point in thresholds:
         if value >= Decimal(str(minimum)):
             return letter, Decimal(str(point))
@@ -44,9 +85,20 @@ def grade_for(score: Decimal | float, scheme: str = "CURRENT-AABBC") -> tuple[st
 
 
 def max_credit_load(
-    *, semester: int, last_gpa: Decimal | float | None, returning: bool
+    *,
+    semester: int,
+    last_gpa: Decimal | float | None,
+    returning: bool,
+    package: str = "CURRENT-AABBC",
 ) -> Decision:
-    inputs = {"semester": semester, "last_gpa": last_gpa, "returning": returning}
+    if package not in RULE_PACKAGE_POLICIES:
+        raise ValueError("paket aturan tidak dikenal")
+    inputs = {
+        "semester": semester,
+        "last_gpa": last_gpa,
+        "returning": returning,
+        "package": package,
+    }
     if returning:
         return Decision("pass", "RETURNING_MAX_18", inputs, ("returning=true", "max=18"))
     if semester == 1:
@@ -63,7 +115,52 @@ def max_credit_load(
     return Decision("pass", f"IPS_MAX_{maximum}", inputs, (f"IPS={gpa}", f"max={maximum}"))
 
 
-def graduation_eligibility(data: dict[str, Any]) -> Decision:
+def progress_evaluation(
+    *,
+    package: str,
+    semester: int,
+    timing: str,
+    earned_credits: int,
+    gpa: Decimal | float | None,
+) -> Decision:
+    if package not in RULE_PACKAGE_POLICIES:
+        raise ValueError("paket aturan tidak dikenal")
+    inputs = {
+        "package": package,
+        "semester": semester,
+        "timing": timing,
+        "earned_credits": earned_credits,
+        "gpa": gpa,
+    }
+    milestones = RULE_PACKAGE_POLICIES[package]["progress_milestones"]
+    match = next((item for item in milestones if item[0:2] == (timing, semester)), None)
+    if match is None:
+        return Decision("indeterminate", "MILESTONE_NOT_APPLICABLE", inputs, ("no milestone",))
+    _, _, minimum_credits, minimum_gpa = match
+    if minimum_credits is None or minimum_gpa is None:
+        return Decision(
+            "pass",
+            "LEGACY_MILESTONE_RECORDED",
+            inputs,
+            (f"{timing}-semester={semester}", "historical rule package"),
+        )
+    if gpa is None:
+        return Decision("indeterminate", "MILESTONE_GPA_MISSING", inputs, ("gpa=missing",))
+    passed = earned_credits >= minimum_credits and Decimal(str(gpa)) >= minimum_gpa
+    return Decision(
+        "pass" if passed else "fail",
+        "MILESTONE_PASS" if passed else "MILESTONE_FAIL",
+        inputs,
+        (
+            f"earned_credits={earned_credits}>={minimum_credits}",
+            f"gpa={gpa}>={minimum_gpa}",
+        ),
+    )
+
+
+def graduation_eligibility(data: dict[str, Any], package: str = "CURRENT-AABBC") -> Decision:
+    if package not in RULE_PACKAGE_POLICIES:
+        raise ValueError("paket aturan tidak dikenal")
     checks = {
         "total_credits": data.get("total_credits", 0) >= 144,
         "required_credits": data.get("required_credits", 0) >= 126,
@@ -79,5 +176,7 @@ def graduation_eligibility(data: dict[str, Any]) -> Decision:
     failed = [name for name, passed in checks.items() if not passed]
     outcome = "pass" if not failed else "fail"
     code = "GRADUATION_ELIGIBLE" if not failed else "GRADUATION_REQUIREMENTS_MISSING"
-    trace = tuple(f"{key}={'pass' if value else 'fail'}" for key, value in checks.items())
-    return Decision(outcome, code, {**data, "failed": failed}, trace)
+    trace = (f"package={package}",) + tuple(
+        f"{key}={'pass' if value else 'fail'}" for key, value in checks.items()
+    )
+    return Decision(outcome, code, {**data, "package": package, "failed": failed}, trace)
