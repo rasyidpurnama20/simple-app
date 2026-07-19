@@ -1,0 +1,13 @@
+from obe.shared.services import ActorContext, record_change
+
+
+def record_domain_change(*, actor: ActorContext, object_id: str, after: dict):
+    return record_change(
+        actor=actor,
+        action="update",
+        object_type="{{ module_name }}",
+        object_id=object_id,
+        summary="{{ ModuleName }} updated",
+        after=after,
+        event_type="{{ module_name }}.updated",
+    )

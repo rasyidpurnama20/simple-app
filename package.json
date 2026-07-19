@@ -2,9 +2,9 @@
   "name": "obe-apps-assets",
   "private": true,
   "scripts": {
-    "build": "tailwindcss -i ./static/src/app.css -o ./static/vendor/app.min.css --minify && node ./scripts/copy-echarts.mjs",
+    "build": "tailwindcss -i ./assets/app.css -o ./static/vendor/app.min.css --minify && node ./scripts/copy-echarts.mjs",
     "assets": "npm run build",
-    "watch": "tailwindcss -i ./static/src/app.css -o ./static/vendor/app.min.css --watch"
+    "watch": "tailwindcss -i ./assets/app.css -o ./static/vendor/app.min.css --watch"
   },
   "dependencies": {
     "echarts": "6.1.0",
