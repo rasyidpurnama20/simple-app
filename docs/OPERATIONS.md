@@ -2,6 +2,8 @@
 
 ## Deploy
 
+Detail preflight, provisioning, maintenance, dan seluruh command tersedia di [runbook deployment](DEPLOYMENT_RUNBOOK.md).
+
 1. Isi secret melalui SOPS sesuai [runbook](SECRETS_RUNBOOK.md); jangan commit plaintext.
 2. Set `OBE_IMAGE` ke image immutable dengan digest.
 3. Jalankan backup pra-rilis.
@@ -15,6 +17,7 @@
 - Snapshot evidence, config terenkripsi, signing metadata, dan audit.
 - Hitung SHA-256 seluruh artefak dan salin ke storage off-host.
 - Simpan record count, waktu, versi aplikasi, checksum ciphertext, serta versi secret pada manifest backup. Jangan simpan nilai secret, decrypted file, environment dump, atau hash plaintext secret.
+- PostgreSQL dibackup dengan `pg_dump --format=custom`; evidence/config/queue/observability dikirim oleh Restic terenkripsi ke repository off-host.
 
 ## Restore rehearsal
 

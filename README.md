@@ -79,6 +79,8 @@ Profil `local`, `test`, `staging`, `production`, dan `exam-edge` terpisah serta 
 - Ikuti [runbook secret dan rotasi](docs/SECRETS_RUNBOOK.md).
 - Audit pemenuhan PR-04 tersedia di [penerimaan PR-04](docs/PR04_ACCEPTANCE.md).
 
+Deployment production memakai compose terpisah dengan image digest immutable dan Ansible. Lihat [runbook deployment](docs/DEPLOYMENT_RUNBOOK.md); operasi sehari-hari tersedia melalui `python -m scripts.obe_ops`.
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -140,7 +142,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 41 test dan coverage 90%.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 70 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk evidence.
 
 ## Dokumentasi
 
@@ -149,11 +151,15 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Operasi, backup, dan restore](docs/OPERATIONS.md)
 - [Keamanan](docs/SECURITY.md)
 - [Lingkungan, SOPS, rotasi, dan revokasi secret](docs/SECRETS_RUNBOOK.md)
+- [Deployment reproducible](docs/DEPLOYMENT_RUNBOOK.md)
+- [PostgreSQL dan concurrency](docs/DATABASE_RUNBOOK.md)
+- [Evidence immutable](docs/EVIDENCE_RUNBOOK.md)
 - [Traceability PR-01–PR-88](docs/TRACEABILITY.md)
 - [Status implementasi dan release gate](docs/IMPLEMENTATION_STATUS.md)
 - [Tata kelola CI dan branch](docs/CI_GOVERNANCE.md)
 - [Audit penerimaan PR-01–PR-03](docs/PR01_PR03_ACCEPTANCE.md)
 - [Audit penerimaan PR-04](docs/PR04_ACCEPTANCE.md)
+- [Audit penerimaan PR-05–PR-07](docs/PR05_PR07_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

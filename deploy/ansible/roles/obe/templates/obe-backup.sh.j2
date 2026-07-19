@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+umask 077
+compose="{{ obe_release_root }}/{{ obe_compose_file }}"
+temporary="{{ obe_data_root }}/backups/database.dump.tmp"
+final="{{ obe_data_root }}/backups/database.dump"
+trap 'rm -f "$temporary"' EXIT
+docker compose -f "$compose" exec -T database pg_dump -U obe -d obe --format=custom >"$temporary"
+mv "$temporary" "$final"
+trap - EXIT
+restic backup "$final" "{{ obe_data_root }}/evidence" "{{ obe_data_root }}/queue" "{{ obe_data_root }}/observability" "{{ obe_data_root }}/config" --tag obe
+restic check --read-data-subset=5%%

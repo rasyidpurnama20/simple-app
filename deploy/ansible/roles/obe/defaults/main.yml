@@ -1,0 +1,15 @@
+obe_user: obe
+obe_group: obe
+obe_uid: 20001
+obe_gid: 20001
+obe_data_root: /srv/obe
+obe_release_root: /opt/obe/current
+obe_release_source: ""
+obe_compose_file: deploy/server/compose.yml
+obe_ssh_port: 22
+obe_tls_certificate_source: ""
+obe_tls_private_key_source: ""
+obe_backup_environment_source: ""
+obe_deployment_environment_source: ""
+obe_runtime_environment_source: ""
+obe_deploy_enabled: false

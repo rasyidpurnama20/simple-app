@@ -17,9 +17,29 @@ DEMO_ACTIONS = {
         "analytics.view",
         "user.manage",
     ],
-    "gpm": ["curriculum.view", "rps.review", "quality.edit", "analytics.view", "evidence.verify"],
-    "pengampu": ["rps.edit", "assessment.edit", "score.edit", "course.view", "analytics.view"],
-    "mahasiswa": ["course.view", "submission.edit", "portfolio.view", "task.view"],
+    "gpm": [
+        "curriculum.view",
+        "rps.review",
+        "quality.edit",
+        "analytics.view",
+        "evidence.verify",
+        "evidence.download",
+    ],
+    "pengampu": [
+        "rps.edit",
+        "assessment.edit",
+        "score.edit",
+        "course.view",
+        "analytics.view",
+        "evidence.download",
+    ],
+    "mahasiswa": [
+        "course.view",
+        "submission.edit",
+        "portfolio.view",
+        "task.view",
+        "evidence.download",
+    ],
 }
 
 
