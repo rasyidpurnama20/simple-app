@@ -7,12 +7,15 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from obe.learning.models import (
     Attendance,
     CourseOutcome,
+    ExamEligibilityOverride,
+    ExamEligibilitySnapshot,
+    OfferingRoster,
     PerformanceIndicator,
     RPSFieldComment,
     RPSVersion,
@@ -52,6 +55,143 @@ def attendance_eligibility(*, offering_id: int, student_id: str) -> dict:
         "denominator": denominator,
         "reason_code": "ATTENDANCE_OK" if percent >= 75 else "ATTENDANCE_BELOW_75",
     }
+
+
+@transaction.atomic
+def request_exam_eligibility_override(
+    *, roster: OfferingRoster, user, reason_code: str, reason: str, evidence_ids: list[str]
+) -> ExamEligibilityOverride:
+    override = ExamEligibilityOverride(
+        roster=roster,
+        reason_code=reason_code,
+        reason=reason,
+        evidence_ids=evidence_ids,
+        requested_by=user,
+        created_by_actor_id=str(user.pk),
+        updated_by_actor_id=str(user.pk),
+    )
+    override.full_clean()
+    override.save()
+    return override
+
+
+@transaction.atomic
+def approve_exam_eligibility_override(
+    override: ExamEligibilityOverride, *, user, approve: bool = True
+) -> ExamEligibilityOverride:
+    locked = ExamEligibilityOverride.objects.select_for_update().get(pk=override.pk)
+    if locked.status != ExamEligibilityOverride.Status.PENDING:
+        raise ValidationError("Override eligibility bukan pending")
+    if locked.requested_by_id == user.pk:
+        raise ValidationError("Pemohon tidak boleh menyetujui override sendiri")
+    locked.status = (
+        ExamEligibilityOverride.Status.APPROVED
+        if approve
+        else ExamEligibilityOverride.Status.REJECTED
+    )
+    locked.approved_by = user
+    locked.decided_at = timezone.now()
+    locked.updated_by_actor_id = str(user.pk)
+    locked.full_clean()
+    locked.save(
+        update_fields=[
+            "status",
+            "approved_by",
+            "decided_at",
+            "updated_by_actor_id",
+            "updated_at",
+        ]
+    )
+    record_change(
+        actor=_actor(user, "exam-eligibility"),
+        action="exam.eligibility.override.decide",
+        object_type="exam-eligibility-override",
+        object_id=str(locked.public_id),
+        summary=f"Override eligibility {locked.status}",
+        after={"status": locked.status, "reason_code": locked.reason_code},
+        reason=locked.reason,
+    )
+    return locked
+
+
+@transaction.atomic
+def evaluate_exam_eligibility(
+    *,
+    roster: OfferingRoster,
+    generated_by,
+    rule_code: str = "ATTENDANCE-UAS-75",
+    rule_version: int = 1,
+) -> ExamEligibilitySnapshot:
+    rows = list(
+        Attendance.objects.filter(offering=roster.offering, student_id=roster.student_id).order_by(
+            "occurred_at", "activity_id"
+        )
+    )
+    counted = [row for row in rows if row.status not in {"cancelled", "exempt"}]
+    attended = sum(row.status in {"present", "late", "permit", "sick"} for row in counted)
+    denominator = len(counted)
+    percent = (
+        Decimal("0")
+        if denominator == 0
+        else (Decimal(attended * 100) / denominator).quantize(Decimal("0.01"))
+    )
+    reason_codes = []
+    if roster.status != "active":
+        reason_codes.append("ROSTER_NOT_ACTIVE")
+    if roster.irs_status != OfferingRoster.IRSStatus.APPROVED:
+        reason_codes.append("IRS_NOT_APPROVED")
+    if denominator == 0:
+        reason_codes.append("ATTENDANCE_DENOMINATOR_EMPTY")
+    elif percent < Decimal("75"):
+        reason_codes.append("ATTENDANCE_BELOW_75")
+
+    now = timezone.now()
+    override = (
+        roster.exam_overrides.filter(status=ExamEligibilityOverride.Status.APPROVED)
+        .filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now))
+        .order_by("-decided_at")
+        .first()
+    )
+    eligible = not reason_codes or override is not None
+    if override is not None and reason_codes:
+        reason_codes = [*reason_codes, f"OVERRIDDEN:{override.reason_code}"]
+    elif eligible:
+        reason_codes = ["ATTENDANCE_OK"]
+
+    snapshot = ExamEligibilitySnapshot.objects.create(
+        roster=roster,
+        eligible=eligible,
+        attendance_percent=percent,
+        attended=attended,
+        denominator=denominator,
+        counted_activity_ids=[row.activity_id for row in counted],
+        reason_codes=reason_codes,
+        rule_code=rule_code,
+        rule_version=rule_version,
+        override=override,
+        source_versions={
+            "roster_public_id": str(roster.public_id),
+            "roster_version": roster.version,
+            "attendance": [
+                {"activity_id": row.activity_id, "source_version": row.source_version}
+                for row in rows
+            ],
+        },
+        generated_by=generated_by,
+    )
+    record_change(
+        actor=_actor(generated_by, "exam-eligibility"),
+        action="exam.eligibility.evaluate",
+        object_type="exam-eligibility",
+        object_id=str(snapshot.id),
+        summary="Kelayakan UAS dihitung",
+        after={
+            "eligible": eligible,
+            "percent": str(percent),
+            "reason_codes": reason_codes,
+        },
+    )
+    return snapshot
 
 
 def rps_payload(rps: RPSVersion) -> dict[str, Any]:

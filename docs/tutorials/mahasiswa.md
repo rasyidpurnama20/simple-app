@@ -31,6 +31,10 @@ Mahasiswa melihat tugas dan riwayat akademiknya sendiri tanpa memperoleh akses k
 4. Bila terjadi regrade, sistem menampilkan nilai terbaru dengan jejak versi; nilai dan alasan sebelumnya tetap tersimpan untuk audit.
 5. Ajukan koreksi melalui kanal resmi bila response/evidence yang ditampilkan tidak sesuai receipt. Jangan membuat submission ganda di luar attempt yang diizinkan.
 
+Submission dapat disimpan sebagai draft dan diganti pada attempt yang sama. Setelah **Final**, response menjadi immutable dan receipt SHA-256 menjadi bukti penerimaan. Reopening hanya dapat dilakukan petugas melalui aksi resmi beralasan. Submission lewat deadline hanya diterima bila kebijakan late mengizinkan dan tetap ditandai `late`.
+
+Sebelum UAS, periksa eligibility yang menampilkan jumlah aktivitas hadir, denominator aktivitas terlaksana, persentase, dan reason code. Batas standar adalah 75%; aktivitas dibatalkan tidak menurunkan persentase. Bila IRS, roster, atau kehadiran resmi tidak sesuai, ajukan koreksi sumber melalui kanal akademik.
+
 ## Pahami keputusan dan ajukan banding
 
 1. Pada keputusan blocking milik sendiri, baca rule code/version, input yang digunakan, kondisi gagal, sumber data, dan langkah perbaikan. Mahasiswa tidak dapat membuka decision mahasiswa lain.

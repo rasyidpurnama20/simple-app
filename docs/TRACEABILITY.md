@@ -33,10 +33,10 @@
 | 27 | Weekly plan | 16 minggu, UTS/UAS, metode/waktu, reschedule/realisasi, planned-vs-actual | Implemented |
 | 28 | Assessment blueprint | instrumen versioned, mapping, blueprint, evidence dan publish-before-teaching gate | Implemented |
 | 29 | Rubric/item/grading | rubrik/kriteria/level/butir, controlled key, second marker, moderation dan versioned regrade | Implemented |
-| 30 | Parallel class/exam | `CourseOffering.parallel_group` | Baseline |
-| 31 | Grade normalization | score model dan boundary-tested rules | Baseline |
-| 32 | Attendance eligibility | attendance service, boundary 75% | Baseline |
-| 33 | Submission/evidence/feedback | `Submission`, `Score`, `EvidenceRecord` | Baseline |
+| 30 | Parallel class/exam | policy strict-same-question, versioned question set, checksum blueprint/soal, GPM/Prodi equivalence approval dan disparity report; `PR30_PR33_ACCEPTANCE.md` | Implemented |
+| 31 | Grade normalization | raw/max/normalized/attempt/state, rule package historis, kategori kompetensi, best attempt dan syarat C/B | Implemented |
+| 32 | Attendance eligibility | roster+IRS, held-only denominator, snapshot UAS 75%, official override maker-checker | Implemented |
+| 33 | Submission/evidence/feedback | group/attempt/deadline, receipt checksum, final immutable/reopen, feedback mapping, score revision maker-checker | Implemented |
 | 34 | Attainment calculation | `AttainmentSnapshot` trace/source version | Baseline |
 | 35 | Bidirectional OBE chain | versioned edge + source/trace fields | Baseline |
 | 36 | Portfolio | reproducible evidence/attainment primitives | Baseline |

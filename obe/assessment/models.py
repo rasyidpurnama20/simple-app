@@ -5,10 +5,11 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from obe.shared.models import VersionedModel
+from obe.shared.models import TimeStampedModel, VersionedModel
 
 
 class AssessmentInstrument(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     offering_public_id = models.UUIDField(db_index=True)
     rps_public_id = models.UUIDField(null=True, blank=True, db_index=True)
     code = models.CharField(max_length=24)
@@ -30,6 +31,7 @@ class AssessmentInstrument(VersionedModel):
     status = models.CharField(max_length=20, default="draft")
     published_at = models.DateTimeField(null=True, blank=True)
     first_score_at = models.DateTimeField(null=True, blank=True)
+    deadline_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
         super().clean()
@@ -59,6 +61,177 @@ class AssessmentInstrument(VersionedModel):
                 condition=models.Q(weight__gt=0) & models.Q(weight__lte=100),
                 name="instrument_weight_range",
             ),
+        ]
+
+
+class ParallelExamPolicy(VersionedModel):
+    program_code = models.CharField(max_length=32)
+    strict_same_question = models.BooleanField(default=False)
+    disparity_threshold = models.DecimalField(max_digits=6, decimal_places=2, default=10)
+    status = models.CharField(
+        max_length=16,
+        choices=[("draft", "Draft"), ("active", "Active"), ("retired", "Retired")],
+        default="draft",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="parallel_exam_policies_created",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="parallel_exam_policies_approved",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.disparity_threshold < 0:
+            raise ValidationError("Batas disparity tidak boleh negatif")
+        if self.status == "active":
+            if not self.approved_by_id or not self.approved_at:
+                raise ValidationError("Kebijakan aktif memerlukan approval")
+            if self.created_by_id == self.approved_by_id:
+                raise ValidationError("Maker dan approver kebijakan harus berbeda")
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk, status="active").exists():
+            raise ValidationError("Kebijakan aktif immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["program_code", "version"], name="parallel_exam_policy_version_unique"
+            )
+        ]
+
+
+class QuestionSetVersion(VersionedModel):
+    instrument = models.ForeignKey(
+        AssessmentInstrument, on_delete=models.PROTECT, related_name="question_sets"
+    )
+    parallel_group = models.CharField(max_length=80)
+    code = models.CharField(max_length=40)
+    blueprint_checksum = models.CharField(max_length=64)
+    question_checksum = models.CharField(max_length=64)
+    coverage = models.JSONField(default=dict)
+    difficulty = models.JSONField(default=dict)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("draft", "Draft"),
+            ("gpm_review", "GPM review"),
+            ("approved", "Approved"),
+            ("released", "Released"),
+        ],
+        default="draft",
+    )
+    authored_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="question_sets_authored",
+    )
+
+    def clean(self):
+        super().clean()
+        if not self.parallel_group.strip() or not self.code.strip():
+            raise ValidationError("Question set wajib memiliki parallel group dan code")
+        for value in (self.blueprint_checksum, self.question_checksum):
+            if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+                raise ValidationError("Checksum question set harus SHA-256 lowercase")
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values("status").first()
+            if previous and previous["status"] == "released":
+                raise ValidationError("Question set released immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["instrument", "code", "version"],
+                name="question_set_instrument_code_version_unique",
+            )
+        ]
+
+
+class ExamEquivalenceReview(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    parallel_group = models.CharField(max_length=80)
+    exam_code = models.CharField(max_length=24)
+    policy = models.ForeignKey(
+        ParallelExamPolicy, on_delete=models.PROTECT, related_name="equivalence_reviews"
+    )
+    question_sets = models.ManyToManyField(QuestionSetVersion, related_name="equivalence_reviews")
+    equivalent = models.BooleanField(default=False)
+    equivalence_report = models.JSONField(default=dict)
+    difference_reason = models.TextField(blank=True)
+    result_analysis = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("draft", "Draft"),
+            ("gpm_reviewed", "GPM reviewed"),
+            ("approved", "Approved"),
+            ("rejected", "Rejected"),
+        ],
+        default="draft",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="exam_equivalence_reviewed",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="exam_equivalence_approved",
+    )
+    reviewed_at = models.DateTimeField()
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+
+class CompetencyScale(VersionedModel):
+    code = models.CharField(max_length=40)
+    bands = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=16,
+        choices=[("draft", "Draft"), ("active", "Active"), ("retired", "Retired")],
+        default="draft",
+    )
+
+    def clean(self):
+        super().clean()
+        if not self.code.strip() or not isinstance(self.bands, list) or not self.bands:
+            raise ValidationError("Skala kompetensi wajib memiliki code dan bands")
+        ordered = sorted(self.bands, key=lambda item: Decimal(str(item.get("min", -1))))
+        expected = Decimal("0")
+        for index, band in enumerate(ordered):
+            minimum = Decimal(str(band.get("min", -1)))
+            maximum = Decimal(str(band.get("max", -1)))
+            if not band.get("code") or minimum != expected or maximum < minimum:
+                raise ValidationError("Band kompetensi harus lengkap, berurutan, dan tidak overlap")
+            expected = maximum + Decimal("0.01")
+            if index == len(ordered) - 1 and maximum != Decimal("100"):
+                raise ValidationError("Band kompetensi terakhir harus berakhir pada 100")
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk, status="active").exists():
+            raise ValidationError("Skala kompetensi aktif immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code", "version"], name="competency_scale_version_unique"
+            )
         ]
 
 
@@ -181,11 +354,43 @@ class AssessmentItem(VersionedModel):
         ]
 
 
+class SubmissionGroup(VersionedModel):
+    instrument = models.ForeignKey(
+        AssessmentInstrument, on_delete=models.PROTECT, related_name="submission_groups"
+    )
+    code = models.CharField(max_length=40)
+    member_ids = models.JSONField(default=list)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if not self.code.strip() or not isinstance(self.member_ids, list) or not self.member_ids:
+            raise ValidationError("Grup submission wajib memiliki code dan anggota")
+        if len(self.member_ids) != len(set(self.member_ids)):
+            raise ValidationError("Anggota grup submission tidak boleh duplikat")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["instrument", "code", "version"],
+                name="submission_group_instrument_code_version_unique",
+            )
+        ]
+
+
 class Submission(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     instrument = models.ForeignKey(
         AssessmentInstrument, on_delete=models.PROTECT, related_name="submissions"
     )
     student_id = models.CharField(max_length=64)
+    group = models.ForeignKey(
+        SubmissionGroup,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="submissions",
+    )
     attempt = models.PositiveSmallIntegerField(default=1)
     response = models.JSONField(default=dict)
     evidence_manifest_ids = models.JSONField(default=list)
@@ -193,6 +398,25 @@ class Submission(VersionedModel):
     submitted_at = models.DateTimeField(null=True, blank=True)
     receipt_checksum = models.CharField(max_length=64, blank=True)
     reopened_reason = models.TextField(blank=True)
+    reopened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="submissions_reopened",
+    )
+    reopened_at = models.DateTimeField(null=True, blank=True)
+    late = models.BooleanField(default=False)
+    source_version = models.JSONField(default=dict, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values("status").first()
+            if previous and previous["status"] == "final" and self.status != "reopened":
+                raise ValidationError("Submission final immutable; lakukan reopening resmi")
+        if self.status == "final" and (not self.submitted_at or not self.receipt_checksum):
+            raise ValidationError("Submission final memerlukan waktu dan receipt checksum")
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -203,13 +427,26 @@ class Submission(VersionedModel):
 
 
 class Score(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
     submission = models.ForeignKey(Submission, on_delete=models.PROTECT, related_name="scores")
     raw_score = models.DecimalField(max_digits=9, decimal_places=3)
     max_score = models.DecimalField(max_digits=9, decimal_places=3)
     normalized = models.DecimalField(max_digits=6, decimal_places=2)
+    attempt = models.PositiveSmallIntegerField(default=1)
     letter = models.CharField(max_length=3, blank=True)
     grade_point = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
-    state = models.CharField(max_length=20, default="graded")
+    state = models.CharField(
+        max_length=20,
+        choices=[
+            ("graded", "Graded"),
+            ("absent", "Absent"),
+            ("exempt", "Exempt"),
+            ("not_graded", "Not graded"),
+            ("invalid", "Invalid"),
+            ("regraded", "Regraded"),
+        ],
+        default="graded",
+    )
     rubric_trace = models.JSONField(default=dict)
     feedback = models.JSONField(default=dict)
     assessor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -226,12 +463,56 @@ class Score(VersionedModel):
     blind_reference = models.CharField(max_length=80, blank=True)
     published_at = models.DateTimeField(null=True, blank=True)
     change_reason = models.TextField(blank=True)
+    rule_package = models.CharField(max_length=32, default="CURRENT-AABBC")
+    rule_package_version = models.PositiveSmallIntegerField(default=1)
+    competency_category = models.CharField(max_length=40, blank=True)
+    source_version = models.JSONField(default=dict, blank=True)
+    calculation_trace = models.JSONField(default=list, blank=True)
 
     def clean(self):
+        super().clean()
         if self.max_score <= 0:
             raise ValidationError("Max score harus lebih dari nol")
         if not Decimal("0") <= self.normalized <= Decimal("100"):
             raise ValidationError("Normalized score harus 0–100")
+
+
+class ScoreRevision(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    score = models.ForeignKey(Score, on_delete=models.PROTECT, related_name="revision_requests")
+    proposed_raw_score = models.DecimalField(max_digits=9, decimal_places=3)
+    proposed_max_score = models.DecimalField(max_digits=9, decimal_places=3)
+    reason = models.TextField()
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="score_revisions_requested",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="score_revisions_approved",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=[("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected")],
+        default="pending",
+    )
+    decision_reason = models.TextField(blank=True)
+    recalculation = models.JSONField(default=dict, blank=True)
+    notification_key = models.CharField(max_length=160, unique=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        if not self.reason.strip() or self.proposed_max_score <= 0:
+            raise ValidationError("Revisi nilai memerlukan alasan dan max score valid")
+        if self.status == "approved":
+            if not self.approved_by_id or not self.decided_at or not self.recalculation:
+                raise ValidationError("Revisi approved memerlukan checker dan recalculation")
+            if self.approved_by_id == self.requested_by_id:
+                raise ValidationError("Pemohon tidak boleh menyetujui revisi nilai sendiri")
 
 
 class CriterionScore(models.Model):

@@ -41,6 +41,15 @@ Pengampu memakai katalog dan pemetaan capaian untuk menyiapkan RPS, asesmen, ser
 5. Nilai melalui kriteria rubrik. Bila second marker diwajibkan, tunggu rekonsiliasi sebelum final. Regrade memakai rubrik versi baru dan alasan; nilai lama tetap tersimpan.
 6. Setelah pertemuan, catat actual minutes, kehadiran, materi, dan evidence. Beri alasan bila ada deviasi dari rencana.
 
+## Kelola ujian paralel dan eligibility UAS
+
+1. Pastikan setiap kelas mempunyai offering, roster, IRS approved, jadwal, ruang, dosen, dan parallel group yang benar.
+2. Buat question set UTS/UAS per kelas. Sistem mencatat checksum blueprint dan soal; soal berbeda wajib mempunyai alasan serta bukti coverage/difficulty ekuivalen.
+3. Ajukan kepada GPM, lalu tunggu approval Prodi sebelum release. Jangan menyetujui question set yang Anda buat sendiri.
+4. Rekam kehadiran per aktivitas. Aktivitas dibatalkan/pengecualian tidak menjadi denominator; periksa snapshot UAS yang menampilkan count, persen, reason code, dan source version.
+5. Bila roster/IRS/kehadiran resmi bermasalah, koreksi sumber. Ajukan override hanya untuk pengecualian sah dengan alasan dan evidence; checker harus aktor berbeda.
+6. Untuk nilai published yang salah, ajukan revisi beralasan. Approval menghasilkan score baru; score lama tidak diubah.
+
 ## Tindak lanjuti keputusan akademik
 
 1. Buka explanation keputusan mata kuliah dan periksa rule code/version, field aktual, kondisi, evidence row, serta source version.

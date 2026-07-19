@@ -4,6 +4,9 @@ from obe.learning.models import (
     Attendance,
     CourseOffering,
     CourseOutcome,
+    ExamEligibilityOverride,
+    ExamEligibilitySnapshot,
+    OfferingRoster,
     PerformanceIndicator,
     RPSFieldComment,
     RPSVersion,
@@ -21,5 +24,8 @@ admin.site.register(
         RPSFieldComment,
         WeeklyPlan,
         Attendance,
+        OfferingRoster,
+        ExamEligibilityOverride,
+        ExamEligibilitySnapshot,
     ]
 )
