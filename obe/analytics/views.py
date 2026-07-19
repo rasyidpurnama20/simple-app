@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from obe.analytics.serializers import AnalyticsFilterSerializer
+from obe.assessment.selectors import semantic_attainment
 
 
 class SemanticAnalyticsView(APIView):
@@ -13,23 +14,46 @@ class SemanticAnalyticsView(APIView):
         filters = AnalyticsFilterSerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
         metric = filters.validated_data["metric"]
+        data = []
+        warnings = []
+        reason_codes = []
+        if metric == "attainment":
+            data = semantic_attainment(
+                course=filters.validated_data.get("course", ""),
+                outcome=filters.validated_data.get("outcome", ""),
+            )
+            if filters.validated_data.get("cohort") or filters.validated_data.get("semester"):
+                warnings.append("Snapshot v5 saat ini tersedia pada scope program/mata kuliah")
+                reason_codes.append("FILTER_SCOPE_NOT_AVAILABLE")
+        if not data:
+            warnings.append("Belum ada data pilot")
+            reason_codes.append("EMPTY_DATASET")
+        actual_series = [row["actual"] for row in data]
+        target_series = [row["target"] for row in data]
         payload = {
             "schema_version": "1.0",
             "metric_version": "1.0",
             "rule_version": "CURRENT-AABBC/1",
             "filters": filters.validated_data,
             "cohort": filters.validated_data.get("cohort"),
-            "source_versions": {"curriculum": 1, "assessment": 1},
+            "source_versions": {
+                "curriculum": 1,
+                "assessment": 1,
+                "dataset": "5.0.0" if data else None,
+            },
             "generated_at": timezone.now().isoformat(),
-            "privacy_scope": "self" if not request.user.is_staff else "program",
-            "denominator": 0,
-            "missing_count": 0,
-            "warnings": ["Belum ada data pilot"],
-            "reason_codes": ["EMPTY_DATASET"],
+            "privacy_scope": "program-aggregate" if data else "self",
+            "denominator": max((row["denominator"] for row in data), default=0),
+            "missing_count": sum(row["actual"] is None for row in data),
+            "warnings": warnings,
+            "reason_codes": reason_codes,
             "units": "percent",
             "dimensions": ["outcome"],
-            "series": [{"name": metric, "data": []}],
-            "data": [],
+            "series": [
+                {"name": "Aktual", "data": actual_series},
+                {"name": "Target", "data": target_series},
+            ],
+            "data": data,
         }
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         etag = hashlib.sha256(canonical).hexdigest()

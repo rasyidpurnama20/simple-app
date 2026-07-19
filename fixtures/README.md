@@ -1,5 +1,7 @@
 # Fixtures
 
-Fixture akademik baseline dibuat secara deterministik dan idempotent melalui `python manage.py seed_demo`. Pendekatan command dipilih agar relasi, password lokal acak, constraint, serta perubahan schema tetap tervalidasi oleh model dan service.
+`sample-data-2020-2026-obe-spec-v5.compact.json` adalah normalisasi aman dari dataset sintetis v5 yang diberikan untuk pengembangan. Katalog kurikulum, pemetaan, dan agregat capaian dipertahankan lengkap; empat riwayat mahasiswa sintetis dipilih sebagai data demonstrasi agar instalasi lokal tetap ringan.
 
-File fixture statis tambahan harus anonim, memiliki provenance dan schema version, serta tidak boleh berisi NIM, nilai, credential, atau data institusi nyata.
+Jalankan `python manage.py import_obe_sample` untuk mengimpor fixture ini secara transaksional dan idempotent. File v5 lengkap dapat diberikan melalui opsi `--path`; importer selalu memvalidasi schema sebelum menulis data.
+
+Fixture tidak boleh berisi credential atau data produksi. Provenance, checksum attachment, status kelengkapan, dan strategi seleksi wajib dicatat di `importMetadata`.
