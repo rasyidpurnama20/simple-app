@@ -286,7 +286,7 @@ class Importer:
                     "target": Decimal("75"),
                     "denominator": denominator,
                     "coverage": Decimal("100") if denominator else Decimal("0"),
-                    "formula_version": "sample-v5/program-weighted-course-attainment",
+                    "formula_version": "sample-v5/program-course-weighted",
                     "source_versions": {"schema": self.dataset["schemaVersion"]},
                     "trace": [code for _, _, code in values],
                     "blocking_reasons": [],

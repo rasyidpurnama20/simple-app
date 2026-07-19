@@ -35,6 +35,10 @@ def test_seed_is_idempotent_and_complete(monkeypatch):
     assert allocation_report(curriculum)["valid"] is True
     assert CurriculumEdge.objects.filter(curriculum=curriculum).exists()
     assert AttainmentSnapshot.objects.filter(scope_type="program").count() == 12
+    assert all(
+        len(value) <= AttainmentSnapshot._meta.get_field("formula_version").max_length
+        for value in AttainmentSnapshot.objects.values_list("formula_version", flat=True)
+    )
     assert StudentProfile.objects.count() == 4
     assert AcademicResult.objects.count() == 212
     assert TaskInstance.objects.count() == 4
