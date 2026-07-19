@@ -2,6 +2,8 @@
 
 Platform OBE yang ringkas untuk menghubungkan **kurikulum → RPS → asesmen → bukti → capaian → CQI**. Aplikasi memakai Django + DRF, HTMX, Tailwind CSS, PostgreSQL, Valkey, RabbitMQ/Celery, dan Apache ECharts yang di-host lokal.
 
+Sumber kebutuhan normatif adalah `Spesifikasi_Utama_Pengembangan_OBE_Apps_PR-01-PR-88.md` dengan SHA-256 `f404527ecfd3b81000e8fcb640a469147c60d0308ef2930fdbe3811eae610be2`. Kebutuhan di luar dokumen tersebut wajib diajukan melalui PR baru. Bukti implementasi per requirement dicatat di [traceability](docs/TRACEABILITY.md).
+
 ## Instalasi tercepat
 
 Prasyarat: Docker dan Docker Compose.
@@ -88,6 +90,26 @@ tests/                      unit, contract, security, dan architecture tests
 
 Impor model lintas domain dilarang. Modul berkomunikasi melalui `services`, `selectors`, command, atau domain event di transactional outbox. Jalankan `python tests/test_architecture.py` untuk memverifikasi batas ini.
 
+Dependency graph kanonik bersifat searah:
+
+```mermaid
+flowchart TD
+  C[Curriculum] --> L[Learning]
+  L --> A[Assessment]
+  A --> E[Evidence dan Attainment]
+  E --> Q[Quality dan CQI]
+  Q --> C
+```
+
+Siklus pada gambar adalah siklus proses bisnis, bukan dependency impor Python. Semua domain hanya boleh bergantung pada shared kernel atau kontrak `service`, `selector`, `command`, dan domain event. Architecture test membangun graph impor aktual dan menggagalkan circular dependency, direct cross-domain model access, serta akses AI di luar `obe.ai.gateway`.
+
+Perubahan schema/API wajib mengikuti aturan berikut:
+
+- Migration harus deterministik; `RunPython` dan `RunSQL` wajib memiliki operasi balik atau forward-fix plan yang disetujui.
+- API publik dan event contract harus versioned, backward-compatible selama masa transisi, serta memiliki contract test.
+- Perubahan breaking memakai endpoint/event version baru, migration plan, dampak data, feature flag, dan rollback pada deskripsi PR.
+- Modul baru dimulai dari [template modul](docs/module-template/README.md) agar URL, permission, service, API, migration, test, audit, dan feature flag tersedia sejak awal.
+
 ## Quality gate
 
 ```bash
@@ -104,6 +126,8 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Keamanan](docs/SECURITY.md)
 - [Traceability PR-01–PR-88](docs/TRACEABILITY.md)
 - [Status implementasi dan release gate](docs/IMPLEMENTATION_STATUS.md)
+- [Tata kelola CI dan branch](docs/CI_GOVERNANCE.md)
+- [Audit penerimaan PR-01–PR-03](docs/PR01_PR03_ACCEPTANCE.md)
 
 ## Catatan ruang lingkup
 

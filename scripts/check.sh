@@ -4,6 +4,10 @@ ruff check .
 ruff format --check .
 mypy config obe --exclude migrations
 python manage.py makemigrations --check --dry-run --settings=config.settings.test
-coverage run -m pytest
-coverage report
+python scripts/check_migration_reversibility.py
 python tests/test_architecture.py
+coverage run -m pytest --junitxml=test-report.xml
+coverage report
+coverage xml
+coverage json -o coverage.json
+python scripts/check_critical_coverage.py coverage.json

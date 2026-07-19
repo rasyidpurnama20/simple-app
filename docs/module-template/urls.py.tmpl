@@ -1,0 +1,5 @@
+from django.urls import path
+
+from obe.{{ module_name }}.api import {{ ModuleName }}APIView
+
+urlpatterns = [path("", {{ ModuleName }}APIView.as_view(), name="{{ module_name }}-api")]

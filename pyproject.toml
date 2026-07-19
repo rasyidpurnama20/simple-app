@@ -35,7 +35,7 @@ include = ["config*", "obe*"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["migrations", ".deps", ".tool-cache", "pip-target-*"]
+extend-exclude = ["migrations", ".deps", ".tool-cache", "pip-target-*", "pytest-of-root"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "DJ", "S"]

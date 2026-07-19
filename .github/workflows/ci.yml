@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: quality-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -34,13 +38,34 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy config obe --exclude migrations
-      - run: python manage.py makemigrations --check --dry-run
+      - name: Validate deterministic and reversible migrations
+        run: |
+          python manage.py makemigrations --check --dry-run
+          python manage.py showmigrations --plan > migration-plan.txt
+          python scripts/check_migration_reversibility.py
       - run: python tests/test_architecture.py
-      - run: coverage run -m pytest && coverage report && coverage xml
+      - name: Run tests and critical-module coverage gate
+        run: |
+          coverage run -m pytest --junitxml=test-report.xml
+          coverage report
+          coverage xml
+          coverage json -o coverage.json
+          python scripts/check_critical_coverage.py coverage.json
+      - name: Re-run tests with an independent hash seed
+        env:
+          PYTHONHASHSEED: "7331"
+        run: pytest --cache-clear
       - run: pip-audit
       - uses: actions/upload-artifact@v7
         if: always()
-        with: {name: quality-evidence, path: coverage.xml, if-no-files-found: warn}
+        with:
+          name: quality-evidence
+          if-no-files-found: warn
+          path: |
+            test-report.xml
+            coverage.xml
+            coverage.json
+            migration-plan.txt
 
   secret-scan:
     runs-on: ubuntu-latest
@@ -61,3 +86,12 @@ jobs:
       - run: cyclonedx-py environment --output-file sbom-python.json
       - uses: actions/upload-artifact@v7
         with: {name: sbom, path: sbom-python.json}
+
+  image-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release-candidate image and capture immutable ID
+        run: docker build --tag obe-apps:ci --iidfile image-digest.txt .
+      - uses: actions/upload-artifact@v7
+        with: {name: image-digest, path: image-digest.txt}
