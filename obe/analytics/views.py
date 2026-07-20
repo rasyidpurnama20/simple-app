@@ -6,9 +6,14 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from obe.analytics.serializers import AnalyticsFilterSerializer
-from obe.assessment.selectors import semantic_attainment
+from obe.analytics.serializers import AnalyticsFilterSerializer, TraceFilterSerializer
+from obe.assessment.selectors import (
+    attainment_trace,
+    attainment_trace_context,
+    semantic_attainment,
+)
 from obe.identity.services import can
+from obe.quality.selectors import attainment_quality_paths
 
 
 class SemanticAnalyticsView(APIView):
@@ -65,3 +70,22 @@ class SemanticAnalyticsView(APIView):
         response["ETag"] = f'"{etag}"'
         response["Cache-Control"] = "private, max-age=60"
         return response
+
+
+class TraceabilityView(APIView):
+    def get(self, request, snapshot_id):
+        if not can(request.user, "trace.view"):
+            raise PermissionDenied("Akses traceability ditolak")
+        filters = TraceFilterSerializer(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        context = attainment_trace_context(snapshot_id)
+        quality_paths = attainment_quality_paths(**context)
+        payload = attainment_trace(
+            snapshot_id,
+            direction=filters.validated_data["direction"],
+            start=filters.validated_data.get("start", ""),
+            downstream_paths=quality_paths or None,
+        )
+        payload["schema_version"] = "obe-trace/1"
+        payload["generated_at"] = timezone.now().isoformat()
+        return Response(payload)

@@ -57,6 +57,15 @@ Pengampu memakai katalog dan pemetaan capaian untuk menyiapkan RPS, asesmen, ser
 3. Jika pengecualian sah diperlukan, ajukan override dengan reason code, alasan, dokumen evidence immutable, dampak, dan expiry.
 4. Pengampu sebagai maker tidak boleh menyetujui override sendiri. Effective outcome berubah menjadi `overridden` hanya setelah checker berwenang menyetujui.
 
+## Hitung attainment dan susun laporan mutu
+
+1. Buat formula draft dengan distribution instrumen/criterion/outcome tepat 100%; ajukan review GPM dan approval Prodi.
+2. Publish score dan lengkapi evidence verified. Calculation fail-closed bila satu input belum resmi; jangan mengisi angka manual untuk menutup gap.
+3. Recalculation selalu memakai snapshot sebelumnya dan alasan. Periksa diff actual, coverage, dan formula version sebelum memakai hasil baru.
+4. Generate portfolio mata kuliah dari snapshot valid, evidence verified, finding, dan CQI. Regenerasi setelah perubahan data menghasilkan versi baru.
+5. Buat draft report PPEPP semester dari RPS, asesmen, attendance, score, attainment, evidence, complaint, finding, CQI, dan effectiveness; lanjutkan ke GPM.
+6. Tindak lanjuti feedback yang ditugaskan sampai actioned/closed dengan deadline dan closure evidence. Kasus restricted tidak boleh disalin ke dokumen umum.
+
 ## Hasil yang diharapkan
 
 - Mata kuliah dan CPMK ditelusuri dari katalog yang sama.
