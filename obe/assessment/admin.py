@@ -3,6 +3,8 @@ from django.contrib import admin
 from obe.assessment.models import (
     AssessmentInstrument,
     AssessmentItem,
+    AttainmentContribution,
+    AttainmentFormula,
     AttainmentSnapshot,
     CompetencyScale,
     CriterionScore,
@@ -34,6 +36,8 @@ admin.site.register(
         QuestionSetVersion,
         ExamEquivalenceReview,
         CriterionScore,
+        AttainmentFormula,
         AttainmentSnapshot,
+        AttainmentContribution,
     ]
 )

@@ -13,6 +13,9 @@ from django.utils import timezone
 
 from obe.assessment.models import (
     AssessmentInstrument,
+    AttainmentContribution,
+    AttainmentFormula,
+    AttainmentSnapshot,
     CompetencyScale,
     CriterionScore,
     ExamEquivalenceReview,
@@ -824,3 +827,289 @@ def regrade_submission(
         reason=reason,
     )
     return score
+
+
+CHAIN_LEVELS = (
+    "pl",
+    "cpl",
+    "cpmk_program",
+    "cpmk_rps",
+    "sub_cpmk",
+    "indicator",
+    "item",
+    "criterion",
+    "instrument",
+)
+
+
+@transaction.atomic
+def create_attainment_formula(
+    *,
+    code: str,
+    scope_type: str,
+    distribution: list[dict[str, Any]],
+    target: Decimal,
+    source_versions: dict[str, Any],
+    user,
+) -> AttainmentFormula:
+    version = (
+        AttainmentFormula.objects.filter(code=code)
+        .order_by("-version")
+        .values_list("version", flat=True)
+        .first()
+        or 0
+    ) + 1
+    formula = AttainmentFormula(
+        code=code,
+        scope_type=scope_type,
+        distribution=distribution,
+        target=target,
+        source_versions=source_versions,
+        version=version,
+        created_by=user,
+        created_by_actor_id=str(user.pk),
+        updated_by_actor_id=str(user.pk),
+    )
+    formula.full_clean()
+    formula.save()
+    return formula
+
+
+@transaction.atomic
+def review_attainment_formula(formula: AttainmentFormula, *, user) -> AttainmentFormula:
+    locked = AttainmentFormula.objects.select_for_update().get(pk=formula.pk)
+    if locked.status != AttainmentFormula.Status.DRAFT:
+        raise ValidationError("Hanya formula draft yang dapat direview")
+    if locked.created_by_id == user.pk:
+        raise ValidationError("Pembuat formula tidak boleh menjadi reviewer")
+    locked.status = AttainmentFormula.Status.REVIEWED
+    locked.reviewed_by = user
+    locked.updated_by_actor_id = str(user.pk)
+    locked.full_clean()
+    locked.save(update_fields=["status", "reviewed_by", "updated_by_actor_id", "updated_at"])
+    return locked
+
+
+@transaction.atomic
+def activate_attainment_formula(formula: AttainmentFormula, *, user) -> AttainmentFormula:
+    locked = AttainmentFormula.objects.select_for_update().get(pk=formula.pk)
+    if locked.status != AttainmentFormula.Status.REVIEWED or not locked.reviewed_by_id:
+        raise ValidationError("Formula harus direview sebelum aktivasi")
+    if user.pk in {locked.created_by_id, locked.reviewed_by_id}:
+        raise ValidationError("Approver formula harus berbeda dari maker dan reviewer")
+    AttainmentFormula.objects.filter(
+        code=locked.code, status=AttainmentFormula.Status.ACTIVE
+    ).update(status=AttainmentFormula.Status.RETIRED, updated_by_actor_id=str(user.pk))
+    locked.status = AttainmentFormula.Status.ACTIVE
+    locked.approved_by = user
+    locked.activated_at = timezone.now()
+    locked.updated_by_actor_id = str(user.pk)
+    locked.full_clean()
+    locked.save(
+        update_fields=[
+            "status",
+            "approved_by",
+            "activated_at",
+            "updated_by_actor_id",
+            "updated_at",
+        ]
+    )
+    record_change(
+        actor=_actor(user),
+        action="attainment.formula.activate",
+        object_type="attainment-formula",
+        object_id=str(locked.public_id),
+        summary="Formula attainment diaktifkan",
+        after={"code": locked.code, "version": locked.version},
+    )
+    return locked
+
+
+def _attainment_source_checksum(formula: AttainmentFormula, inputs: list[dict[str, Any]]) -> str:
+    return _checksum(
+        {
+            "formula": {"code": formula.code, "version": formula.version},
+            "distribution": formula.distribution,
+            "inputs": inputs,
+            "source_versions": formula.source_versions,
+        }
+    )
+
+
+@transaction.atomic
+def calculate_attainment(
+    *,
+    formula: AttainmentFormula,
+    scope_id: str,
+    outcome_code: str,
+    inputs: list[dict[str, Any]],
+    user,
+    external_blocking_reasons: Iterable[str] = (),
+    previous_snapshot: AttainmentSnapshot | None = None,
+    reason: str = "",
+) -> AttainmentSnapshot:
+    if formula.status != AttainmentFormula.Status.ACTIVE:
+        raise ValidationError("Perhitungan resmi memerlukan formula aktif")
+    formula.full_clean()
+    if previous_snapshot and not reason.strip():
+        raise ValidationError("Recalculation memerlukan alasan")
+    configured = {str(row["source_id"]): row for row in formula.distribution}
+    provided: dict[str, dict[str, Any]] = {}
+    blocking = list(dict.fromkeys(str(code) for code in external_blocking_reasons if code))
+    missing: list[str] = []
+    for input_row in inputs:
+        source_id = str(input_row.get("source_id", ""))
+        if not source_id or source_id in provided:
+            blocking.append("DUPLICATE_OR_EMPTY_SOURCE")
+            continue
+        provided[source_id] = input_row
+    for source_id in sorted(set(configured) - set(provided)):
+        missing.append(source_id)
+        blocking.append("MISSING_SOURCE")
+    if set(provided) - set(configured):
+        blocking.append("UNALLOCATED_SOURCE")
+
+    traces: list[dict[str, Any]] = []
+    contribution_rows: list[dict[str, Any]] = []
+    weighted_total = Decimal("0")
+    usable_weight = Decimal("0")
+    denominator = 0
+    for source_id, config in configured.items():
+        row = provided.get(source_id)
+        row_reasons: list[str] = []
+        normalized = None
+        weighted = None
+        if row is None:
+            row_reasons.append("MISSING_SOURCE")
+        else:
+            if row.get("path") != config.get("path"):
+                row_reasons.append("TRACE_PATH_MISMATCH")
+            if row.get("evidence_status") != "verified":
+                row_reasons.append("EVIDENCE_NOT_VERIFIED")
+            if row.get("score_status") not in {"published", "regraded"}:
+                row_reasons.append("SCORE_NOT_PUBLISHED")
+            row_reasons.extend(str(code) for code in row.get("blocking_reasons", []) if code)
+            try:
+                score_value = Decimal(str(row["score_value"]))
+                max_score = Decimal(str(row["max_score"]))
+                if max_score <= 0 or score_value < 0 or score_value > max_score:
+                    raise ValueError
+                normalized = (score_value / max_score * Decimal("100")).quantize(Decimal("0.01"))
+            except (KeyError, TypeError, ValueError, ArithmeticError):
+                score_value = None
+                max_score = None
+                row_reasons.append("SCORE_INVALID")
+            if not row_reasons and normalized is not None:
+                weight = Decimal(str(config["weight"]))
+                weighted = (normalized * weight / Decimal("100")).quantize(Decimal("0.0001"))
+                weighted_total += weighted
+                usable_weight += weight
+                denominator += 1
+        blocking.extend(row_reasons)
+        trace = {
+            "source_id": source_id,
+            "path": config.get("path", {}),
+            "weight": str(config["weight"]),
+            "normalized": str(normalized) if normalized is not None else None,
+            "weighted_value": str(weighted) if weighted is not None else None,
+            "evidence_status": row.get("evidence_status", "") if row else "missing",
+            "score_status": row.get("score_status", "") if row else "missing",
+            "blocking_reasons": sorted(set(row_reasons)),
+            "source_versions": row.get("source_versions", {}) if row else {},
+        }
+        traces.append(trace)
+        contribution_rows.append(
+            {
+                **trace,
+                "score_value": row.get("score_value") if row else None,
+                "max_score": row.get("max_score") if row else None,
+            }
+        )
+
+    blocking = sorted(set(blocking))
+    coverage = usable_weight.quantize(Decimal("0.01"))
+    actual = None if blocking else weighted_total.quantize(Decimal("0.01"))
+    latest_version = (
+        AttainmentSnapshot.objects.filter(
+            scope_type=formula.scope_type,
+            scope_id=scope_id,
+            outcome_code=outcome_code,
+        )
+        .order_by("-snapshot_version")
+        .values_list("snapshot_version", flat=True)
+        .first()
+        or 0
+    )
+    difference = {}
+    if previous_snapshot:
+        difference = {
+            "actual_before": (
+                str(previous_snapshot.actual) if previous_snapshot.actual is not None else None
+            ),
+            "actual_after": str(actual) if actual is not None else None,
+            "coverage_before": str(previous_snapshot.coverage),
+            "coverage_after": str(coverage),
+            "formula_before": previous_snapshot.formula_version,
+            "formula_after": f"{formula.code}/{formula.version}",
+        }
+    snapshot = AttainmentSnapshot.objects.create(
+        formula=formula,
+        previous_snapshot=previous_snapshot,
+        snapshot_version=latest_version + 1,
+        scope_type=formula.scope_type,
+        scope_id=scope_id,
+        outcome_code=outcome_code,
+        actual=actual,
+        target=formula.target,
+        denominator=denominator,
+        coverage=coverage,
+        formula_version=f"{formula.code}/{formula.version}"[:40],
+        source_versions=formula.source_versions,
+        trace=traces,
+        blocking_reasons=blocking,
+        missing_data=missing,
+        contribution_summary=traces,
+        difference=difference,
+        status=(AttainmentSnapshot.Status.BLOCKED if blocking else AttainmentSnapshot.Status.VALID),
+        recalculation_reason=reason,
+        source_checksum=_attainment_source_checksum(formula, inputs),
+        generated_by=user,
+    )
+    AttainmentContribution.objects.bulk_create(
+        [
+            AttainmentContribution(
+                snapshot=snapshot,
+                source_id=row["source_id"],
+                score_value=row["score_value"],
+                max_score=row["max_score"],
+                normalized=row["normalized"],
+                weight=row["weight"],
+                weighted_value=row["weighted_value"],
+                path=row["path"],
+                evidence_status=row["evidence_status"],
+                score_status=row["score_status"],
+                source_versions=row["source_versions"],
+                blocking_reasons=row["blocking_reasons"],
+            )
+            for row in contribution_rows
+        ]
+    )
+    if previous_snapshot:
+        AttainmentSnapshot.objects.filter(pk=previous_snapshot.pk).update(
+            status=AttainmentSnapshot.Status.SUPERSEDED
+        )
+    record_change(
+        actor=_actor(user),
+        action="attainment.recalculate" if previous_snapshot else "attainment.calculate",
+        object_type="attainment-snapshot",
+        object_id=str(snapshot.id),
+        summary="Snapshot attainment dihitung secara fail-closed",
+        after={
+            "status": snapshot.status,
+            "actual": str(actual) if actual is not None else None,
+            "blocking_reasons": blocking,
+            "formula": snapshot.formula_version,
+        },
+        reason=reason,
+    )
+    return snapshot

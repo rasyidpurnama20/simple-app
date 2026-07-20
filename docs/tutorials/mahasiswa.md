@@ -46,6 +46,14 @@ Sebelum UAS, periksa eligibility yang menampilkan jumlah aktivitas hadir, denomi
 
 Dashboard dan katalog bersifat agregat/program. Mahasiswa boleh melihatnya sebagai konteks, tetapi tidak boleh menyimpulkan posisi mahasiswa lain dari agregat tersebut.
 
+## Lihat portfolio dan kirim masukan
+
+1. Portfolio pribadi hanya menampilkan capaian dan evidence milik sendiri; ubah URL mahasiswa lain harus menghasilkan akses ditolak.
+2. Periksa denominator, coverage, formula/source version, status verifikasi, dan bagian yang belum lengkap sebelum memakai portfolio sebagai dokumen resmi.
+3. Kirim feedback melalui `POST /api/v1/quality/feedback/`. Pilih anonim bila diperlukan; untuk risiko retaliasi sistem membatasi kasus sebagai `restricted`.
+4. Feedback duplikat yang masih ditangani ditolak. Gunakan kasus yang sama untuk clarification, action, closure, atau reopen.
+5. Feedback hanya ditutup setelah ada bukti tindakan. Identitas pelapor anonim tidak ditampilkan pada portfolio, finding, atau laporan mutu.
+
 ## Hasil yang diharapkan
 
 - Mahasiswa hanya melihat profil yang terikat pada akunnya.

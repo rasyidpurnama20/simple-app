@@ -40,6 +40,7 @@ urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     path("readyz/", readyz, name="readyz"),
     path("api/v1/analytics/", include("obe.analytics.urls")),
+    path("api/v1/quality/", include("obe.quality.urls")),
     path("evidence/", include("obe.evidence.urls")),
     path("catalog/", include("obe.curriculum.urls")),
     path("tasks/", include("obe.academic_lifecycle.urls")),

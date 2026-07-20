@@ -37,12 +37,12 @@
 | 31 | Grade normalization | raw/max/normalized/attempt/state, rule package historis, kategori kompetensi, best attempt dan syarat C/B | Implemented |
 | 32 | Attendance eligibility | roster+IRS, held-only denominator, snapshot UAS 75%, official override maker-checker | Implemented |
 | 33 | Submission/evidence/feedback | group/attempt/deadline, receipt checksum, final immutable/reopen, feedback mapping, score revision maker-checker | Implemented |
-| 34 | Attainment calculation | `AttainmentSnapshot` trace/source version | Baseline |
-| 35 | Bidirectional OBE chain | versioned edge + source/trace fields | Baseline |
-| 36 | Portfolio | reproducible evidence/attainment primitives | Baseline |
-| 37 | Provus/CQI | `IntegrityIssue`, `ImprovementAction` | Baseline |
-| 38 | PPEPP report | `QualityCycle` | Baseline |
-| 39 | Academic feedback/action | quality issue/evidence/owner workflow | Baseline |
+| 34 | Attainment calculation | Formula distribution berversi, maker-reviewer-approver, fail-closed contribution, snapshot/diff/recalculation | Implemented |
+| 35 | Bidirectional OBE chain | Forward/back trace outcome→mata kuliah→asesmen→attainment→CQI bersource/version/status/permission dan gate terpisah; gap/orphan tetap terlihat | Implemented |
+| 36 | Portfolio | Student/course/program portfolio berversi, lifecycle, evidence-only, reproducible HTML/CSV/PDF checksum | Implemented |
+| 37 | Provus/CQI | Standard/finding gap+coverage+confidence, action lifecycle dan effectiveness periode berikutnya | Implemented |
+| 38 | PPEPP report | Siklus dan report reproducible Pengampu→GPM→Prodi→TPMF, correction dan export checksum | Implemented |
+| 39 | Academic feedback/action | Kanal anonim/restricted, dedupe, workflow tindak lanjut, privacy dan audit akses | Implemented |
 | 40 | Semantic JSON contract | analytics serializer/view/contract tests | Baseline |
 | 41 | Local Apache ECharts | npm-pinned local bundle + reusable JS lifecycle | Baseline |
 | 42 | Accessibility/privacy/cache/export | table fallback, ETag, private cache, CSP | Baseline |

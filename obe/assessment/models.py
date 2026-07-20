@@ -530,8 +530,111 @@ class CriterionScore(models.Model):
         ]
 
 
+class AttainmentFormula(VersionedModel):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        REVIEWED = "reviewed", "Reviewed"
+        ACTIVE = "active", "Active"
+        RETIRED = "retired", "Retired"
+
+    code = models.CharField(max_length=80)
+    scope_type = models.CharField(max_length=30)
+    distribution = models.JSONField(default=list)
+    target = models.DecimalField(max_digits=6, decimal_places=2, default=75)
+    source_versions = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="attainment_formulas_created",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="attainment_formulas_reviewed",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="attainment_formulas_approved",
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if not self.code.strip() or not self.distribution:
+            raise ValidationError("Formula attainment memerlukan kode dan distribution")
+        total = Decimal("0")
+        source_ids = set()
+        required_path = {
+            "instrument",
+            "criterion",
+            "sub_cpmk",
+            "indicator",
+            "item",
+            "cpmk_rps",
+            "cpmk_program",
+            "cpl",
+            "pl",
+        }
+        for row in self.distribution:
+            source_id = str(row.get("source_id", "")).strip()
+            if not source_id or source_id in source_ids:
+                raise ValidationError("Distribution source_id wajib unik")
+            source_ids.add(source_id)
+            total += Decimal(str(row.get("weight", 0)))
+            if not required_path.issubset(row.get("path", {})):
+                raise ValidationError("Distribution wajib memuat seluruh rantai outcome")
+        if total != Decimal("100"):
+            raise ValidationError("Total distribution formula wajib tepat 100")
+        if self.status == self.Status.ACTIVE:
+            if not self.reviewed_by_id or not self.approved_by_id or not self.activated_at:
+                raise ValidationError(
+                    "Formula aktif memerlukan review, approval, dan waktu aktivasi"
+                )
+            actors = {self.created_by_id, self.reviewed_by_id, self.approved_by_id}
+            if len(actors) != 3:
+                raise ValidationError("Maker, reviewer, dan approver formula harus berbeda")
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk, status=self.Status.ACTIVE).exists():
+            raise ValidationError("Formula aktif immutable; buat versi baru")
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code", "version"], name="attainment_formula_code_version_unique"
+            )
+        ]
+
+
 class AttainmentSnapshot(models.Model):
+    class Status(models.TextChoices):
+        VALID = "valid", "Valid"
+        BLOCKED = "blocked", "Blocked"
+        SUPERSEDED = "superseded", "Superseded"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    formula = models.ForeignKey(
+        AttainmentFormula,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="snapshots",
+    )
+    previous_snapshot = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="recalculations",
+    )
+    snapshot_version = models.PositiveIntegerField(default=1)
     scope_type = models.CharField(max_length=30)
     scope_id = models.CharField(max_length=80)
     outcome_code = models.CharField(max_length=24)
@@ -543,4 +646,50 @@ class AttainmentSnapshot(models.Model):
     source_versions = models.JSONField(default=dict)
     trace = models.JSONField(default=list)
     blocking_reasons = models.JSONField(default=list)
+    missing_data = models.JSONField(default=list)
+    contribution_summary = models.JSONField(default=list)
+    difference = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.VALID)
+    recalculation_reason = models.TextField(blank=True)
+    source_checksum = models.CharField(max_length=64, blank=True)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="attainment_snapshots_generated",
+    )
     generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["scope_type", "scope_id", "outcome_code", "snapshot_version"],
+                name="attainment_scope_outcome_snapshot_version_unique",
+            )
+        ]
+
+
+class AttainmentContribution(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    snapshot = models.ForeignKey(
+        AttainmentSnapshot, on_delete=models.PROTECT, related_name="contributions"
+    )
+    source_id = models.CharField(max_length=120)
+    score_value = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    max_score = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    normalized = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    weight = models.DecimalField(max_digits=6, decimal_places=3)
+    weighted_value = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    path = models.JSONField(default=dict)
+    evidence_status = models.CharField(max_length=32, blank=True)
+    score_status = models.CharField(max_length=32, blank=True)
+    source_versions = models.JSONField(default=dict)
+    blocking_reasons = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["snapshot", "source_id"], name="attainment_contribution_source_unique"
+            )
+        ]

@@ -65,6 +65,14 @@ Publication, attainment, eligibility, kelulusan, laporan mutu, dan official sync
 2. Cari tugas **Tinjau anomali 129 SKS wajib**.
 3. Gunakan katalog dan dashboard sebagai bukti awal. Approval final tetap memerlukan pemisahan maker-checker dan bukti perubahan.
 
+## Setujui formula, portfolio, dan laporan PPEPP
+
+1. Aktifkan formula attainment hanya setelah dibuat Pengampu dan direview GPM; ketiga aktor harus berbeda dan distribution wajib tepat 100%.
+2. Tolak snapshot yang memiliki blocking reason, evidence belum verified, score belum published, denominator/mapping hilang, atau path tidak cocok.
+3. Setujui portfolio hanya bila `incomplete_sections` kosong. Publish tidak mengubah package checksum; perubahan data membuat versi pengganti.
+4. Setujui laporan PPEPP sesudah review GPM dan sebelum review scoped TPMF. Report published memerlukan empat aktor berbeda dan seluruh bagian semester lengkap.
+5. Pantau CQI `ineffective/reopened` dan accepted risk. Accepted risk harus mempunyai alasan; ia tidak otomatis memverifikasi integrity blocker.
+
 ## Periksa Semantic Analytics
 
 Buka <http://localhost:8000/api/v1/analytics/semantic/?metric=attainment>. Respons harus memuat 12 baris CPL, nilai aktual, target, denominator, coverage, dan formula version.

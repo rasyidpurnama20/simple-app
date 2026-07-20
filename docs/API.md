@@ -35,3 +35,11 @@ Response menyertakan ETag dan cache private. Error DRF dinormalisasi menjadi `{"
 
 Health endpoints: `GET /healthz/` untuk liveness dan `GET /readyz/` untuk kesiapan database.
 
+## Attainment trace dan quality loop
+
+- `GET /api/v1/analytics/attainment/<snapshot_uuid>/trace/?direction=forward|backward&start=<node>` mengembalikan node/edge dua arah sampai finding/action CQI, version/status/owner/source/permission, gate terpisah, serta daftar gap yang tidak disembunyikan.
+- `GET /api/v1/quality/portfolios/<public_uuid>/` mengembalikan portfolio terscope beserta denominator, source version, incomplete section, evidence manifest, dan checksum.
+- `GET /api/v1/quality/findings/` mengembalikan perbandingan Provus actual/target/gap/coverage/confidence.
+- `GET /api/v1/quality/reports/<public_uuid>/` mengembalikan report PPEPP berversi dan approval history.
+- `POST /api/v1/quality/feedback/` menerima feedback akademik/nonakademik. `anonymous=true` tidak menyimpan FK reporter; `retaliation_risk=true` memaksa klasifikasi `restricted`.
+- `GET /api/v1/quality/feedback/<public_uuid>/` hanya untuk reporter nonanonim, responsible actor yang diizinkan, atau reviewer. Pembukaan kasus tercatat pada audit append-only.

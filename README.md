@@ -94,6 +94,8 @@ Kurikulum memakai lifecycle maker-reviewer-approver-activator, paket JSON/CSV be
 
 RPS dan asesmen memakai checksum approval yang replayable, komentar per field, desain 16 minggu, blueprint 100%, rubrik/butir berversi, controlled answer key, second marker, dan regrade tanpa menimpa nilai lama. Mulai dari [runbook RPS dan asesmen](docs/RPS_ASSESSMENT_RUNBOOK.md) serta [penerimaan PR-25–PR-29](docs/PR25_PR29_ACCEPTANCE.md).
 
+Siklus hasil OBE memakai formula attainment berversi dan fail-closed, trace maju/balik, portfolio reproducible, evaluasi Provus/CQI, laporan PPEPP empat aktor, serta feedback anonim/restricted. Ikuti [runbook quality loop](docs/QUALITY_LOOP_RUNBOOK.md) dan [penerimaan PR-34–PR-39](docs/PR34_PR39_ACCEPTANCE.md).
+
 ## Tutorial berdasarkan aktor
 
 | Aktor | Fitur utama | Panduan |
@@ -155,7 +157,7 @@ Perubahan schema/API wajib mengikuti aturan berikut:
 ./scripts/check.sh
 ```
 
-Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 133 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, learning/assessment, evidence, identity, dan shared decision engine. Acceptance file v5 penuh mengimpor seluruh mahasiswa tanpa `--student-limit`, lalu mengulang import untuk membuktikan idempotensi.
+Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, architecture test, dependency/secret scan, dan SBOM di CI. Baseline saat ini memiliki 148 test dengan coverage minimum 85% dan gate tambahan per domain kritis, termasuk curriculum, learning/assessment, evidence, identity, dan shared decision engine. Acceptance file v5 penuh mengimpor seluruh mahasiswa tanpa `--student-limit`, lalu mengulang import untuk membuktikan idempotensi.
 
 ## Dokumentasi
 
@@ -189,6 +191,8 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 - [Audit penerimaan PR-19–PR-24](docs/PR19_PR24_ACCEPTANCE.md)
 - [Runbook RPS dan asesmen](docs/RPS_ASSESSMENT_RUNBOOK.md)
 - [Audit penerimaan PR-25–PR-29](docs/PR25_PR29_ACCEPTANCE.md)
+- [Runbook attainment, portfolio, CQI, PPEPP, dan feedback](docs/QUALITY_LOOP_RUNBOOK.md)
+- [Audit penerimaan PR-34–PR-39](docs/PR34_PR39_ACCEPTANCE.md)
 - [Dataset sintetis v5](docs/DATASET_V5.md)
 - [Tutorial seluruh aktor](docs/tutorials/README.md)
 

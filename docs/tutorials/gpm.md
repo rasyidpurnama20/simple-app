@@ -57,6 +57,15 @@ GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formu
 4. Setelah hasil tersedia, jalankan analisis disparity. Selisih di atas threshold menjadi temuan mutu untuk ditindaklanjuti, bukan alasan mengubah nilai otomatis.
 5. Saat memeriksa eligibility UAS, gunakan snapshot held-only denominator, roster/IRS, reason code, source version, dan status override resmi.
 
+## Review attainment, portfolio, Provus, dan PPEPP
+
+1. Review formula distribution dan path lengkap sebelum Prodi mengaktifkannya. Formula aktif immutable; perubahan selalu versi baru.
+2. Buka trace `/api/v1/analytics/attainment/<uuid>/trace/` secara maju dan balik. Node `gap` atau edge `blocked` harus menjadi finding, bukan dihapus dari laporan.
+3. Review portfolio draft: actual, target, gap, denominator, coverage, formula/source version, evidence manifest, finding, dan action effectiveness.
+4. Jalankan evaluasi Provus. Gap di bawah target harus mempunyai root cause, owner, deadline, success indicator, approval, dan bukti periode berikutnya.
+5. Review laporan PPEPP hanya bila sepuluh bagian semester lengkap; teruskan ke Prodi dan TPMF yang berbeda.
+6. Pada feedback restricted, lindungi identitas dan audit setiap akses. Tautkan feedback verified ke finding/CQI/PPEPP sebelum merencanakan tindakan.
+
 ## Hasil yang diharapkan
 
 - GPM dapat membedakan agregat program dan mata kuliah.
