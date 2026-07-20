@@ -31,6 +31,8 @@ Jika percobaan sebelumnya gagal, ulangi dari container bersih tanpa menghapus da
 ./scripts/quickstart.sh --clean
 ```
 
+Jika port `8000` sudah dipakai, jalankan `./scripts/quickstart.sh --port 8080` lalu buka <http://localhost:8080>.
+
 Panduan error umum, stop/start, dan reset total tersedia di [panduan instalasi lokal](docs/LOCAL_SETUP.md).
 
 ## Perintah sehari-hari
