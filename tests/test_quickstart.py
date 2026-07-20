@@ -74,13 +74,16 @@ def test_quickstart_cleans_old_containers_and_reports_credentials(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
+    assert "Mengunduh image Nginx melalui Docker Compose" in result.stdout
     assert "OBE Apps siap: http://localhost:8088" in result.stdout
     assert f"Password      : {demo_password(tmp_path / '.env')}" in result.stdout
     calls = docker_log.read_text(encoding="utf-8")
+    assert "8088 compose pull nginx" in calls
     assert "8088 compose down --remove-orphans" in calls
     assert "8088 compose up --build --detach --remove-orphans" in calls
     assert "8088 compose exec -T nginx nginx -t" in calls
     assert "8088 compose exec -T nginx wget -q --spider http://127.0.0.1/healthz/" in calls
+    assert calls.index("compose pull nginx") < calls.index("compose up --build")
 
 
 def test_quickstart_rejects_invalid_port_before_using_docker(tmp_path):

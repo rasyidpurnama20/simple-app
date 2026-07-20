@@ -101,12 +101,17 @@ fi
 validate_port "$http_port"
 export OBE_HTTP_PORT="$http_port"
 
+echo "Mengunduh image Nginx melalui Docker Compose (jika belum tersedia)..."
+if ! compose pull nginx; then
+  echo "Peringatan: image Nginx tidak dapat diperbarui; mencoba image lokal yang tersedia." >&2
+fi
+
 if [ "$clean" -eq 1 ]; then
   echo "Membersihkan container lama (volume/data tetap aman)..."
   compose down --remove-orphans
 fi
 
-echo "Membangun dan menjalankan OBE Apps di background..."
+echo "Membangun dan menjalankan seluruh stack, termasuk Nginx, di background..."
 if ! compose up --build --detach --remove-orphans; then
   echo "Gagal menjalankan container. Ringkasan log:" >&2
   compose logs --tail=100 web db valkey rabbitmq nginx >&2 || true
