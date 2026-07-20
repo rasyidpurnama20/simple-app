@@ -7,6 +7,8 @@ from obe.shared.models import VersionedModel
 
 
 class PromptTemplate(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     code = models.CharField(max_length=80)
     task_class = models.CharField(max_length=4, default="A1")
     input_schema = models.JSONField(default=dict)

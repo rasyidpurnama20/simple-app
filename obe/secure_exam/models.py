@@ -6,6 +6,9 @@ from obe.shared.models import VersionedModel
 
 
 class Exam(VersionedModel):
+    source_id = models.CharField(max_length=120, null=True, blank=True, unique=True)
+    source_status = models.CharField(max_length=40, blank=True)
+    source_snapshot = models.JSONField(default=dict, blank=True)
     offering_public_id = models.UUIDField()
     title = models.CharField(max_length=200)
     blueprint = models.JSONField(default=dict)

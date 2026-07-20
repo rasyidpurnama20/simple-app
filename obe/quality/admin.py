@@ -5,6 +5,17 @@ from obe.quality.models import (
     IntegrityIssue,
     IntegrityValidationRun,
     QualityCycle,
+    QualityFinding,
+    QualityStandard,
 )
 
-admin.site.register([IntegrityIssue, IntegrityValidationRun, ImprovementAction, QualityCycle])
+admin.site.register(
+    [
+        IntegrityIssue,
+        IntegrityValidationRun,
+        ImprovementAction,
+        QualityCycle,
+        QualityStandard,
+        QualityFinding,
+    ]
+)

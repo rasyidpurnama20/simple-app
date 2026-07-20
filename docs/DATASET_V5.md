@@ -4,6 +4,8 @@
 
 `fixtures/sample-data-2020-2026-obe-spec-v5.compact.json` memuat katalog lengkap schema v5: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, seluruh pemetaan, agregat capaian mata kuliah, serta empat riwayat mahasiswa sintetis representatif. Untuk bagian master/governance dan learning/assessment yang tidak disalin ke fixture compact, importer memakai irisan kanonik file v5 lengkap: 2 versi kurikulum, 2 package cohort, 11 academic rule, dan RPS `MIK1624101` beserta outcome, 16 minggu, enam instrumen, dan dua rubrik.
 
+File lengkap juga tersedia di `data/sample-data-2020-2026-obe-spec-v5.json`. Tahap 4 mengimpor registry evidence, submission/score, override demo, feature flag, audit sumber, quality/Provus/PPEPP, prompt AI, Secure Exam, lifecycle, dan kontrak integrasi. Rincian count dan gate terdapat di [Acceptance Tahap 4](DATASET_STAGE4_ACCEPTANCE.md).
+
 File v5 lengkap dapat diberikan melalui `--path`; master kurikulum, package, rule, dosen, penugasan, alias, seluruh course offering, desain RPS, rubrik, dan assessment plan dari file tersebut menjadi sumber utama. Fallback kanonik hanya dipakai untuk fixture compact dan mempunyai nilai yang sama dengan `curriculumVersions` serta `academicRuleRegistry` v5.
 
 ## Menjalankan import
@@ -72,6 +74,15 @@ akan ditolak sebelum transaksi database dimulai.
 | learning.weeklyPlans | `WeeklyPlan` |
 | assessment.assessmentPlans | `AssessmentInstrument` dan `AssessmentItem` |
 | assessment.rubricLibrary | `Rubric`, `RubricCriterion`, `PerformanceLevel` |
+| evidence.manifests/submissions/scoreRecords | `FileManifest`, `EvidenceRecord`, `Submission`, `Score` |
+| academicDecisions.overrides | `AcademicDecision` + `DecisionOverride` dengan provenance demo |
+| featureFlags | `FeatureFlag` dalam runtime state aman `disabled` |
+| auditTrail.events | `AuditEvent` dengan source hash terpisah |
+| quality.issues/provusStandards/provusFindings/ppeppCycle | `IntegrityIssue`, `QualityStandard`, `QualityFinding`, `QualityCycle` |
+| ai.promptRegistry | `PromptTemplate` draft metadata-only |
+| secureExam | `Exam` draft beserta metadata edge/package/session/go-no-go |
+| academicLifecycle | `LifecycleConfiguration`, `LifecycleApplication` |
+| integration.contracts | `IntegrationContract` |
 
 Credit policy v5 mencatat 129 SKS wajib dan `activationValid=false`. Importer mempertahankan fakta tersebut serta menempatkan kurikulum pada status `review`; gate aktivasi aplikasi tetap mensyaratkan tepat 126 SKS.
 
@@ -87,7 +98,7 @@ Status `published-demo` pada RPS/instrumen sumber hanya berlaku untuk fixture. I
 Acceptance lokal atau staging harus memakai file penuh tanpa `--student-limit`:
 
 ```bash
-OBE_FULL_SAMPLE_PATH=/path/ke/sample-data-2020-2026-obe-spec-v5.json \
+OBE_FULL_SAMPLE_PATH="$PWD/data/sample-data-2020-2026-obe-spec-v5.json" \
   pytest tests/test_sample_import.py -k full_sample
 ```
 
@@ -95,6 +106,9 @@ Tes menjalankan import dua kali dan memverifikasi dua kurikulum kanonik, 12 bari
 skala nilai, 43 dosen, 36 penugasan, 3.851 alias identifier, 3.850 offering,
 77 RPS, 1.232 minggu, 459 assessment plan, 1.597 mahasiswa, 12.776 enrollment
 plan, 56.119 hasil studi selesai, rekonsiliasi 84.641 enrollment, serta
-idempotensi seluruh count. `--student-limit 0` hanya valid
+idempotensi seluruh count. Acceptance Tahap 4 juga memverifikasi 366 manifest,
+366 submission, 366 score, 3.330 override, 10 feature flag, 7 audit event,
+8 quality issue, 12 standard, 3 finding, 4 prompt, 1 Secure Exam, 3 lifecycle
+application, dan 5 integration contract. `--student-limit 0` hanya valid
 untuk smoke test domain non-mahasiswa dan tidak boleh dipakai sebagai bukti
 acceptance file penuh.
