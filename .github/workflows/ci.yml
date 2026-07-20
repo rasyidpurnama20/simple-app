@@ -104,6 +104,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Validate Compose and Nginx runtime configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker run --rm \
+            --add-host web:127.0.0.1 \
+            --volume "$PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:1.28.0-alpine nginx -t
       - name: Build release-candidate image and capture immutable ID
         run: docker build --tag obe-apps:ci --iidfile image-digest.txt .
       - uses: actions/upload-artifact@v7
