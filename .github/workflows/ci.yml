@@ -83,11 +83,11 @@ jobs:
         with:
           args: >-
             dir
-            --config=/github/workspace/.gitleaks.toml
+            --config=.gitleaks.toml
             --max-target-megabytes=100
             --redact
             --no-banner
-            /github/workspace
+            .
 
   sbom:
     runs-on: ubuntu-latest
