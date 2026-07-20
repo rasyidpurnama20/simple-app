@@ -1,0 +1,16 @@
+title = "OBE Apps Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+# The v5 fixture repeats public course codes in `recordKey`. Keep the default
+# generic API-key rule enabled and suppress only that exact fixture match.
+[[rules]]
+id = "generic-api-key"
+
+  [[rules.allowlists]]
+  description = "Public course-code recordKey values in the OBE v5 fixture"
+  condition = "AND"
+  regexTarget = "match"
+  paths = ['''^data/sample-data-2020-2026-obe-spec-v5\.json$''']
+  regexes = ['''recordKey\":\"RPS-(?:MIK|UUW)[0-9]{7}-[0-9]{4}-V[0-9]+\"''']
