@@ -12,12 +12,12 @@ Skrip akan melakukan seluruh langkah berikut secara otomatis:
 
 1. memeriksa Docker dan Docker Compose;
 2. membuat atau memperbaiki `.env` lokal;
-3. mengunduh image Nginx melalui Docker Compose jika belum tersedia;
+3. mengunduh base image dan membangun Nginx melalui Docker Compose;
 4. membangun dan menjalankan seluruh service, termasuk Nginx, di background;
 5. memvalidasi konfigurasi dan health check Nginx; dan
 6. menampilkan URL, username, password, dan perintah bantuan.
 
-Nginx berjalan sebagai container `nginx:1.28.0-alpine`; tidak ada instalasi Nginx tambahan di komputer host.
+Nginx dibangun dari `nginx:1.28.0-alpine`. Konfigurasinya disalin ke image lokal `obe-apps-nginx:local`, sehingga tidak ada instalasi Nginx tambahan atau bind mount/directory sharing di komputer host.
 
 Buka <http://localhost:8000> setelah pesan `OBE Apps siap` muncul.
 

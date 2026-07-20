@@ -74,16 +74,16 @@ def test_quickstart_cleans_old_containers_and_reports_credentials(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Mengunduh image Nginx melalui Docker Compose" in result.stdout
+    assert "membangun Nginx melalui Docker Compose" in result.stdout
     assert "OBE Apps siap: http://localhost:8088" in result.stdout
     assert f"Password      : {demo_password(tmp_path / '.env')}" in result.stdout
     calls = docker_log.read_text(encoding="utf-8")
-    assert "8088 compose pull nginx" in calls
+    assert "8088 compose build --pull nginx" in calls
     assert "8088 compose down --remove-orphans" in calls
     assert "8088 compose up --build --detach --remove-orphans" in calls
     assert "8088 compose exec -T nginx nginx -t" in calls
     assert "8088 compose exec -T nginx wget -q --spider http://127.0.0.1/healthz/" in calls
-    assert calls.index("compose pull nginx") < calls.index("compose up --build")
+    assert calls.index("compose build --pull nginx") < calls.index("compose up --build")
 
 
 def test_quickstart_rejects_invalid_port_before_using_docker(tmp_path):
@@ -104,15 +104,22 @@ def test_quickstart_rejects_invalid_port_before_using_docker(tmp_path):
 
 def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     nginx = (ROOT / "deploy/nginx/nginx.conf").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "deploy/nginx/Dockerfile").read_text(encoding="utf-8")
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "/etc/nginx/proxy_params" not in nginx
     for header in ("Host", "X-Real-IP", "X-Forwarded-For", "X-Forwarded-Proto"):
         assert f"proxy_set_header {header}" in nginx
+    assert "FROM nginx:1.28.0-alpine" in dockerfile
+    assert "COPY nginx.conf /etc/nginx/nginx.conf" in dockerfile
+    assert "context: ./deploy/nginx" in compose
+    assert "image: obe-apps-nginx:local" in compose
+    assert "./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf" not in compose
     assert "${OBE_HTTP_PORT:-8000}:80" in compose
     assert "web: {condition: service_healthy}" in compose
     assert '["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz/"]' in compose
     assert "docker compose config --quiet" in workflow
+    assert "docker compose build --pull nginx" in workflow
     assert "--add-host web:127.0.0.1" in workflow
-    assert "nginx:1.28.0-alpine nginx -t" in workflow
+    assert "obe-apps-nginx:local nginx -t" in workflow
