@@ -12,7 +12,7 @@ Prasyarat: Docker Desktop atau Docker Engine yang sedang aktif.
 ./scripts/quickstart.sh
 ```
 
-Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, mengunduh image Nginx melalui Docker Compose jika belum tersedia, membangun dan menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Nginx tidak perlu dipasang manual di host. Buka <http://localhost:8000> setelah pesan `OBE Apps siap` muncul.
+Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun image Nginx melalui Docker Compose, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Konfigurasi Nginx disalin ke image sehingga tidak memerlukan instalasi Nginx atau directory sharing di host. Buka <http://localhost:8000> setelah pesan `OBE Apps siap` muncul.
 
 | Peran | Username |
 |---|---|

@@ -101,9 +101,13 @@ fi
 validate_port "$http_port"
 export OBE_HTTP_PORT="$http_port"
 
-echo "Mengunduh image Nginx melalui Docker Compose (jika belum tersedia)..."
-if ! compose pull nginx; then
-  echo "Peringatan: image Nginx tidak dapat diperbarui; mencoba image lokal yang tersedia." >&2
+echo "Mengunduh base image dan membangun Nginx melalui Docker Compose..."
+if ! compose build --pull nginx; then
+  echo "Peringatan: base image Nginx tidak dapat diperbarui; mencoba cache lokal." >&2
+  if ! compose build nginx; then
+    echo "Gagal membangun container Nginx." >&2
+    exit 1
+  fi
 fi
 
 if [ "$clean" -eq 1 ]; then
