@@ -83,6 +83,7 @@ Jika belum berhasil, periksa pesan yang ditampilkan. Penyebab umum:
 | `exec ./scripts/entrypoint.sh: no such file or directory` | Tarik versi terbaru lalu jalankan quickstart dengan `--clean`. Versi baru memakai entrypoint absolut dan menormalisasi CRLF di image. |
 | `No migrations to apply` | Tidak perlu tindakan; migration otomatis berhasil dan database sudah terbaru. Tunggu pesan `OBE Apps siap`. |
 | Service `init` gagal | Jalankan `docker compose logs init`; quickstart juga mencetak log init otomatis ketika startup gagal. |
+| `Versi kurikulum aktif/arsip bersifat immutable` | Tarik image terbaru lalu jalankan kembali quickstart. Seed mempertahankan katalog v5 lengkap yang sudah governed dan hanya menyinkronkan akun demo. |
 | `Forbidden (403) CSRF verification failed` | Pastikan URL sama dengan yang dicetak quickstart, lalu muat ulang halaman login agar token baru dibuat. Jalankan `./scripts/quickstart.sh --clean` bila stack berasal dari versi lama. Jangan menonaktifkan CSRF. |
 | Login ditolak setelah password `.env` berubah | Jalankan kembali `./scripts/quickstart.sh`; seed akan menyinkronkan seluruh akun demo. |
 
