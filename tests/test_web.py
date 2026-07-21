@@ -1,3 +1,5 @@
+import secrets
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client, override_settings
@@ -34,8 +36,8 @@ def test_dashboard_requires_login(client):
 @pytest.mark.django_db
 @override_settings(CSRF_TRUSTED_ORIGINS=["http://localhost:8000"])
 def test_login_accepts_browser_origin_through_local_nginx():
-    password = "safe-test-password"
-    get_user_model().objects.create_user(username="local-demo", password=password)
+    credential = secrets.token_urlsafe(24)
+    get_user_model().objects.create_user(username="local-demo", password=credential)
     client = Client(enforce_csrf_checks=True)
     login_url = reverse("login")
 
@@ -45,7 +47,7 @@ def test_login_accepts_browser_origin_through_local_nginx():
         login_url,
         {
             "username": "local-demo",
-            "password": password,
+            "password": credential,
             "csrfmiddlewaretoken": csrf_token,
         },
         HTTP_HOST="localhost:8000",
