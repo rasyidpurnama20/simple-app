@@ -118,3 +118,22 @@ def test_seed_is_idempotent_and_complete(monkeypatch):
     assert AssessmentInstrument.objects.filter(rps_public_id=rps.public_id).count() == 6
     assert Rubric.objects.filter(status="published").count() == 2
     assert validate_rps(rps)["valid"]
+
+
+@pytest.mark.django_db
+def test_seed_keeps_demo_credentials_in_sync(monkeypatch):
+    from obe.identity.services import ensure_demo_assignments
+
+    User = get_user_model()
+    User.objects.create_user(username="prodi", password="old-demo-password")
+
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", "current-demo-password")
+    ensure_demo_assignments()
+
+    for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
+        assert User.objects.get(username=username).check_password("current-demo-password")
+
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", "rotated-demo-password")
+    ensure_demo_assignments()
+    for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
+        assert User.objects.get(username=username).check_password("rotated-demo-password")

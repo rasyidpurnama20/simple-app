@@ -4,12 +4,21 @@
 
 Mahasiswa melihat tugas dan riwayat akademiknya sendiri tanpa memperoleh akses ke data mahasiswa lain.
 
-## Masuk
+## Instalasi dan login
 
-1. Buka <http://localhost:8000/accounts/login/>.
-2. Gunakan reset kredensial bila diperlukan dan selesaikan MFA jika akun mengaktifkannya. Sistem menolak ID mahasiswa lain walaupun URL diubah manual.
-3. Masuk dengan username `mahasiswa` dan password lokal dari `setup-local.sh`.
-4. Akun demo ini dipetakan ke satu identitas mahasiswa sintetis dari fixture compact; tidak ada data mahasiswa produksi.
+1. Aktifkan Docker Desktop/Engine, lalu dari root repositori jalankan `./scripts/quickstart.sh`.
+2. Tunggu pesan `OBE Apps siap`. Buka URL **Halaman login** yang dicetak; default-nya <http://localhost:8000/accounts/login/>.
+3. Masuk dengan username `mahasiswa` dan password demo yang dicetak. Jika terlewat, buka `.env` dan lihat `OBE_DEMO_PASSWORD`.
+4. Jika muncul 403 CSRF, muat ulang halaman login. Untuk stack lama, jalankan `./scripts/quickstart.sh --clean` lalu buka kembali URL login.
+5. Akun demo dipetakan ke identitas mahasiswa sintetis; tidak ada data mahasiswa produksi.
+
+## Lima menit pertama
+
+1. Buka **Kemajuan** dan cocokkan NIM sintetis, SKS lulus, serta IPK.
+2. Buka **Tugas Saya**, lalu cari **Periksa riwayat studi dan capaian pribadi**.
+3. Kembali ke halaman Kemajuan untuk mencocokkan tugas dengan daftar hasil studi.
+
+Pada penggunaan non-demo, gunakan reset kredensial bila diperlukan dan selesaikan MFA jika akun mengaktifkannya. Sistem menolak ID mahasiswa lain walaupun URL diubah manual.
 
 ## Lihat kemajuan pribadi
 

@@ -4,12 +4,20 @@
 
 GPM memverifikasi konsistensi data capaian, target, denominator, dan jejak formula sebelum memberi rekomendasi mutu.
 
-## Masuk dan lihat capaian
+## Instalasi dan login
 
-1. Masuk di <http://localhost:8000/accounts/login/> dengan username `gpm`.
-2. Pastikan assignment mutu masih aktif sebelum membuka analytics atau bukti lintas mata kuliah; akses yang dicabut langsung membatalkan sesi lama.
-3. Pada dashboard, tunggu label **12 CPL terverifikasi**.
-4. Buka tabel alternatif di bawah grafik radar dan bandingkan setiap nilai aktual dengan target 75.
+1. Aktifkan Docker Desktop/Engine, lalu dari root repositori jalankan `./scripts/quickstart.sh`.
+2. Tunggu pesan `OBE Apps siap`. Buka URL **Halaman login** yang dicetak; default-nya <http://localhost:8000/accounts/login/>.
+3. Masuk dengan username `gpm` dan password demo yang dicetak. Jika terlewat, buka `.env` dan lihat `OBE_DEMO_PASSWORD`.
+4. Jika muncul 403 CSRF, muat ulang halaman login. Untuk stack lama, jalankan `./scripts/quickstart.sh --clean` lalu buka kembali URL login.
+
+## Lima menit pertama
+
+1. Pada dashboard, tunggu label **12 CPL terverifikasi**.
+2. Buka tabel alternatif di bawah grafik radar dan bandingkan setiap nilai aktual dengan target 75.
+3. Buka **Tugas Saya**, lalu pilih **Verifikasi capaian CPL dataset v5**.
+
+Pada penggunaan non-demo, pastikan assignment mutu masih aktif sebelum membuka analytics atau bukti lintas mata kuliah; akses yang dicabut langsung membatalkan sesi lama.
 
 ## Verifikasi scope program dan mata kuliah
 

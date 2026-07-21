@@ -1,5 +1,8 @@
+import secrets
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client, override_settings
 from django.urls import reverse
 
 from obe.identity.models import RoleAssignment
@@ -28,6 +31,33 @@ def test_dashboard_requires_login(client):
     response = client.get(reverse("dashboard"))
     assert response.status_code == 302
     assert "/accounts/login/" in response.url
+
+
+@pytest.mark.django_db
+@override_settings(CSRF_TRUSTED_ORIGINS=["http://localhost:8000"])
+def test_login_accepts_browser_origin_through_local_nginx():
+    credential = secrets.token_urlsafe(24)
+    get_user_model().objects.create_user(username="local-demo", password=credential)
+    client = Client(enforce_csrf_checks=True)
+    login_url = reverse("login")
+
+    login_page = client.get(login_url, HTTP_HOST="localhost:8000")
+    csrf_token = login_page.cookies["csrftoken"].value
+    response = client.post(
+        login_url,
+        {
+            "username": "local-demo",
+            "password": credential,
+            "csrfmiddlewaretoken": csrf_token,
+        },
+        HTTP_HOST="localhost:8000",
+        HTTP_ORIGIN="http://localhost:8000",
+        HTTP_REFERER="http://localhost:8000/accounts/login/",
+        REMOTE_ADDR="192.0.2.44",
+    )
+
+    assert response.status_code == 302
+    assert response.url == reverse("dashboard")
 
 
 @pytest.mark.django_db

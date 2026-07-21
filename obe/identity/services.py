@@ -115,7 +115,7 @@ def ensure_demo_assignments() -> dict:
     users = {}
     for role in ("prodi", "gpm", "pengampu", "mahasiswa"):
         user, created = User.objects.get_or_create(username=role)
-        if created or not user.has_usable_password():
+        if created or not user.check_password(password):
             user.set_password(password)
             user.save(update_fields=["password"])
         users[role] = user

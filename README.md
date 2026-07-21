@@ -12,16 +12,16 @@ Prasyarat: Docker Desktop atau Docker Engine yang sedang aktif.
 ./scripts/quickstart.sh
 ```
 
-Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun image Nginx melalui Docker Compose, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Konfigurasi Nginx disalin ke image sehingga tidak memerlukan instalasi Nginx atau directory sharing di host. Buka <http://localhost:8000> setelah pesan `OBE Apps siap` muncul.
+Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun image Nginx melalui Docker Compose, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Konfigurasi Nginx disalin ke image sehingga tidak memerlukan instalasi Nginx atau directory sharing di host. Setelah pesan `OBE Apps siap` muncul, buka halaman login yang dicetak oleh quickstart (default: <http://localhost:8000/accounts/login/>).
 
-| Peran | Username |
-|---|---|
-| Prodi | `prodi` |
-| GPM | `gpm` |
-| Pengampu | `pengampu` |
-| Mahasiswa | `mahasiswa` |
+| Peran | Username | Mulai menggunakan aplikasi |
+|---|---|---|
+| Prodi | `prodi` | [Tutorial Prodi](docs/tutorials/prodi.md) |
+| GPM | `gpm` | [Tutorial GPM](docs/tutorials/gpm.md) |
+| Pengampu | `pengampu` | [Tutorial Pengampu](docs/tutorials/pengampu.md) |
+| Mahasiswa | `mahasiswa` | [Tutorial Mahasiswa](docs/tutorials/mahasiswa.md) |
 
-Password acak ditampilkan oleh quickstart dan tersimpan di `.env` privat. Seed demo otomatis ditolak saat mode production/non-debug.
+Keempat akun memakai password demo yang sama. Password acak ditampilkan oleh quickstart dan tersimpan sebagai `OBE_DEMO_PASSWORD` di `.env` privat. Setiap quickstart menyinkronkan password akun dengan nilai tersebut, jadi kredensial yang dicetak selalu dapat digunakan. Akun dan data ini sintetis; seed demo otomatis ditolak saat mode production/non-debug.
 
 Data demo memakai normalisasi aman `sample-data-2020-2026-obe-spec-v5`: 5 PL, 12 CPL, 18 bahan kajian, 31 CPMK, 77 mata kuliah, 2 package cohort, 11 academic rule, serta irisan RPS/asesmen `MIK1624101` (1 CPMK-RPS, 3 Sub-CPMK, 3 indikator, 16 minggu, 6 instrumen, dan 2 rubrik). Detail provenance tersedia di [panduan dataset v5](docs/DATASET_V5.md).
 
@@ -32,6 +32,8 @@ Jika percobaan sebelumnya gagal, ulangi dari container bersih tanpa menghapus da
 ```
 
 Jika port `8000` sudah dipakai, jalankan `./scripts/quickstart.sh --port 8080` lalu buka <http://localhost:8080>.
+
+Jika browser pernah membuka halaman login sebelum stack terbaru siap, muat ulang halaman login lalu coba kembali. Origin CSRF `localhost`/`127.0.0.1` untuk port quickstart dikonfigurasi otomatis; tidak perlu menonaktifkan perlindungan CSRF.
 
 Panduan error umum, stop/start, dan reset total tersedia di [panduan instalasi lokal](docs/LOCAL_SETUP.md).
 

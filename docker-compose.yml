@@ -31,6 +31,7 @@ services:
       DATABASE_URL: postgresql://obe:${POSTGRES_PASSWORD:-obe}@db:5432/obe
       CACHE_URL: redis://valkey:6379/0
       CELERY_BROKER_URL: amqp://obe:${RABBITMQ_PASSWORD:-obe}@rabbitmq:5672//
+      OBE_HTTP_PORT: "${OBE_HTTP_PORT:-8000}"
     volumes: ["evidence-data:/app/var/evidence", "uploads-data:/app/var/uploads"]
     depends_on:
       db: {condition: service_healthy}

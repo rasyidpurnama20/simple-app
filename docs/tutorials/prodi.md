@@ -4,13 +4,21 @@
 
 Prodi memantau kesehatan kurikulum, menilai temuan sebelum aktivasi, dan memberi approval tanpa melakukan self-approval.
 
-## Masuk dan orientasi
+## Instalasi dan login
 
-1. Buka <http://localhost:8000/accounts/login/>.
-2. Kelola akun melalui layanan Prodi, lalu berikan role dan assignment yang selalu dibatasi aksi, object, periode, serta expiry. Self-assignment tidak diperbolehkan.
-3. Aktifkan fitur secara bertahap melalui flag `internal`/`pilot`/`general`; sertakan acceptance evidence dan rollback plan.
-4. Masuk dengan username `prodi` dan password lokal yang ditampilkan oleh `setup-local.sh`.
+1. Aktifkan Docker Desktop/Engine, lalu dari root repositori jalankan `./scripts/quickstart.sh`.
+2. Tunggu pesan `OBE Apps siap`. Buka URL **Halaman login** yang dicetak; default-nya <http://localhost:8000/accounts/login/>.
+3. Masuk dengan username `prodi` dan password demo yang dicetak. Jika terlewat, buka `.env` dan lihat `OBE_DEMO_PASSWORD`.
+4. Jika muncul 403 CSRF, muat ulang halaman login. Untuk stack lama, jalankan `./scripts/quickstart.sh --clean` lalu buka kembali URL login.
 5. Dashboard menampilkan agregat capaian CPL dari dataset sintetis v5. Status hijau menunjukkan snapshot tersedia, bukan persetujuan kurikulum.
+
+## Lima menit pertama
+
+1. Buka **Katalog** dan konfirmasi dataset memuat 77 mata kuliah.
+2. Buka **Tugas Saya**, lalu cari **Tinjau anomali 129 SKS wajib**.
+3. Kembali ke dashboard dan periksa ringkasan 12 CPL sebelum mengikuti alur detail di bawah.
+
+Untuk penggunaan non-demo, kelola akun melalui layanan Prodi dan berikan role/assignment yang dibatasi aksi, object, periode, serta expiry. Self-assignment tidak diperbolehkan. Aktifkan fitur bertahap melalui flag `internal`/`pilot`/`general` disertai acceptance evidence dan rollback plan.
 
 ## Tinjau kurikulum
 
