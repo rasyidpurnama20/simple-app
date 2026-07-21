@@ -114,6 +114,8 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     local_settings = (ROOT / "config/settings/local.py").read_text(encoding="utf-8")
+    container_guide = (ROOT / "docs/COMPOSE_CONTAINERS.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "/etc/nginx/proxy_params" not in nginx
@@ -149,6 +151,10 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     assert "--add-host web:127.0.0.1" in workflow
     assert "obe-apps-nginx:local nginx -t" in workflow
     assert "docker run --rm obe-apps:ci /bin/sh" in workflow
+    assert "docs/COMPOSE_CONTAINERS.md" in readme
+    for service in ("db", "valkey", "rabbitmq", "init", "web", "worker", "beat", "nginx"):
+        assert f"`{service}`" in container_guide
+    assert "Exited (0)" in container_guide
 
 
 def test_entrypoint_dispatches_non_web_commands():
