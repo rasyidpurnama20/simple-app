@@ -2,7 +2,7 @@
 
 ## Cara tercepat
 
-Pastikan Docker Desktop atau Docker Engine sedang aktif, lalu dari root repositori jalankan:
+Pastikan Docker Desktop atau Docker Engine sedang aktif, lalu dari root repositori jalankan satu perintah berikut melalui Git Bash, WSL, atau terminal Linux/macOS:
 
 ```bash
 ./scripts/quickstart.sh
@@ -12,12 +12,19 @@ Skrip akan melakukan seluruh langkah berikut secara otomatis:
 
 1. memeriksa Docker dan Docker Compose;
 2. membuat atau memperbaiki `.env` lokal;
-3. mengunduh base image dan membangun Nginx melalui Docker Compose;
-4. membangun dan menjalankan seluruh service, termasuk Nginx, di background;
+3. membangun satu image aplikasi bersama untuk web, worker, dan beat;
+4. membangun Nginx lalu menjalankan seluruh service di background;
 5. memvalidasi konfigurasi dan health check Nginx; dan
 6. menampilkan URL, username, password, dan perintah bantuan.
 
-Nginx dibangun dari `nginx:1.28.0-alpine`. Konfigurasinya disalin ke image lokal `obe-apps-nginx:local`, sehingga tidak ada instalasi Nginx tambahan atau bind mount/directory sharing di komputer host.
+Image aplikasi memakai entrypoint absolut `/usr/local/bin/obe-entrypoint` dan menormalisasi CRLF saat build. Karena itu checkout Windows tidak memerlukan `dos2unix`, perubahan permission, atau konfigurasi Git manual. Nginx juga dibangun ke image lokal tanpa bind mount/directory sharing.
+
+Jangan mencampur quickstart dengan langkah instalasi Compose manual. Untuk memperbarui atau memulihkan instalasi, gunakan urutan tunggal berikut:
+
+```bash
+git pull
+./scripts/quickstart.sh --clean
+```
 
 Buka URL **Halaman login** yang dicetak setelah pesan `OBE Apps siap` muncul. URL default-nya <http://localhost:8000/accounts/login/>.
 
@@ -67,6 +74,7 @@ Jika belum berhasil, periksa pesan yang ditampilkan. Penyebab umum:
 | `Aplikasi belum siap` | Lihat ringkasan log yang otomatis dicetak, lalu jalankan quickstart dengan `--clean`. |
 | Port `8000` sudah dipakai | Jalankan `./scripts/quickstart.sh --port 8080`. |
 | `Nginx gagal memuat konfigurasi` | Lihat log yang otomatis dicetak; quickstart tidak akan lagi menyatakan aplikasi siap jika proxy gagal. |
+| `exec ./scripts/entrypoint.sh: no such file or directory` | Tarik versi terbaru lalu jalankan quickstart dengan `--clean`. Versi baru memakai entrypoint absolut dan menormalisasi CRLF di image. |
 | `Forbidden (403) CSRF verification failed` | Pastikan URL sama dengan yang dicetak quickstart, lalu muat ulang halaman login agar token baru dibuat. Jalankan `./scripts/quickstart.sh --clean` bila stack berasal dari versi lama. Jangan menonaktifkan CSRF. |
 | Login ditolak setelah password `.env` berubah | Jalankan kembali `./scripts/quickstart.sh`; seed akan menyinkronkan seluruh akun demo. |
 

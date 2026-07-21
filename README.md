@@ -12,7 +12,14 @@ Prasyarat: Docker Desktop atau Docker Engine yang sedang aktif.
 ./scripts/quickstart.sh
 ```
 
-Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun image Nginx melalui Docker Compose, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Konfigurasi Nginx disalin ke image sehingga tidak memerlukan instalasi Nginx atau directory sharing di host. Setelah pesan `OBE Apps siap` muncul, buka halaman login yang dicetak oleh quickstart (default: <http://localhost:8000/accounts/login/>).
+Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun satu image aplikasi bersama untuk web/worker/beat beserta image Nginx, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Entrypoint Linux dinormalisasi di dalam image sehingga checkout Windows/CRLF tidak memerlukan perbaikan manual. Setelah pesan `OBE Apps siap` muncul, buka halaman login yang dicetak oleh quickstart (default: <http://localhost:8000/accounts/login/>).
+
+Gunakan quickstart sebagai satu-satunya jalur instalasi lokal; tidak perlu menjalankan `docker compose up` atau memasang Nginx secara manual. Setelah menarik perbaikan terbaru, cukup jalankan:
+
+```bash
+git pull
+./scripts/quickstart.sh --clean
+```
 
 | Peran | Username | Mulai menggunakan aplikasi |
 |---|---|---|

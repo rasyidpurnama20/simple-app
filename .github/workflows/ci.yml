@@ -114,5 +114,9 @@ jobs:
             obe-apps-nginx:local nginx -t
       - name: Build release-candidate image and capture immutable ID
         run: docker build --tag obe-apps:ci --iidfile image-digest.txt .
+      - name: Verify self-contained runtime entrypoint
+        run: |
+          output="$(docker run --rm obe-apps:ci /bin/sh -c 'printf entrypoint-ok')"
+          test "$output" = "entrypoint-ok"
       - uses: actions/upload-artifact@v7
         with: {name: image-digest, path: image-digest.txt}
