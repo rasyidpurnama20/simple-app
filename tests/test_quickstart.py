@@ -84,6 +84,7 @@ def test_quickstart_cleans_old_containers_and_reports_credentials(tmp_path):
     calls = docker_log.read_text(encoding="utf-8")
     assert "8088 compose build --pull web nginx" in calls
     assert "8088 compose down --remove-orphans" in calls
+    assert "8088 compose rm --force --stop init" in calls
     assert "8088 compose up --detach --remove-orphans" in calls
     assert "8088 compose exec -T nginx nginx -t" in calls
     assert "8088 compose exec -T nginx wget -q --spider http://127.0.0.1/healthz/" in calls
@@ -128,6 +129,9 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     assert 'CMD ["web"]' in app_dockerfile
     assert "image: obe-apps-web:local" in compose
     assert 'command: ["./scripts/entrypoint.sh"]' not in compose
+    assert 'command: ["init"]' in compose
+    assert "service_completed_successfully" in compose
+    assert 'restart: "no"' in compose
     assert "context: ./deploy/nginx" in compose
     assert "image: obe-apps-nginx:local" in compose
     assert "./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf" not in compose
@@ -139,6 +143,8 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     assert "web: {condition: service_healthy}" in compose
     assert '["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz/"]' in compose
     assert "docker compose config --quiet" in workflow
+    assert "Apply migrations to CI database" in workflow
+    assert "python manage.py migrate --noinput" in workflow
     assert "docker compose build --pull nginx" in workflow
     assert "--add-host web:127.0.0.1" in workflow
     assert "obe-apps-nginx:local nginx -t" in workflow
@@ -162,6 +168,38 @@ def test_entrypoint_dispatches_non_web_commands():
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == "entrypoint-ok"
+
+
+def test_entrypoint_init_applies_migrations_and_local_seed(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    command_log = tmp_path / "commands.log"
+    python = fake_bin / "python"
+    python.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n',
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
+    env["COMMAND_LOG"] = str(command_log)
+    env["OBE_ENV"] = "local"
+
+    result = subprocess.run(  # noqa: S603
+        ["/bin/sh", str(ROOT / "scripts/entrypoint.sh"), "init"],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "manage.py migrate --noinput",
+        "manage.py seed_demo",
+    ]
+    assert "No migrations to apply" in result.stdout
 
 
 def test_local_settings_trust_the_selected_quickstart_port():

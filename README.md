@@ -12,7 +12,9 @@ Prasyarat: Docker Desktop atau Docker Engine yang sedang aktif.
 ./scripts/quickstart.sh
 ```
 
-Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun satu image aplikasi bersama untuk web/worker/beat beserta image Nginx, menjalankan seluruh container di background, menunggu health check, lalu menampilkan akun demo. Entrypoint Linux dinormalisasi di dalam image sehingga checkout Windows/CRLF tidak memerlukan perbaikan manual. Setelah pesan `OBE Apps siap` muncul, buka halaman login yang dicetak oleh quickstart (default: <http://localhost:8000/accounts/login/>).
+Satu perintah tersebut memeriksa Docker, menyiapkan `.env`, membangun satu image aplikasi bersama beserta image Nginx, lalu menjalankan service `init`. Service ini menerapkan migration dan menyinkronkan seed demo sebelum web/worker/beat boleh hidup. Entrypoint Linux dinormalisasi di dalam image sehingga checkout Windows/CRLF tidak memerlukan perbaikan manual. Setelah pesan `OBE Apps siap` muncul, buka halaman login yang dicetak oleh quickstart (default: <http://localhost:8000/accounts/login/>).
+
+Pesan Django `No migrations to apply` adalah **sukses**, bukan error: database sudah menggunakan migration terbaru. Tidak perlu menjalankan `python manage.py migrate` secara manual.
 
 Gunakan quickstart sebagai satu-satunya jalur instalasi lokal; tidak perlu menjalankan `docker compose up` atau memasang Nginx secara manual. Setelah menarik perbaikan terbaru, cukup jalankan:
 

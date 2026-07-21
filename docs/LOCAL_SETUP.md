@@ -12,10 +12,12 @@ Skrip akan melakukan seluruh langkah berikut secara otomatis:
 
 1. memeriksa Docker dan Docker Compose;
 2. membuat atau memperbaiki `.env` lokal;
-3. membangun satu image aplikasi bersama untuk web, worker, dan beat;
-4. membangun Nginx lalu menjalankan seluruh service di background;
-5. memvalidasi konfigurasi dan health check Nginx; dan
-6. menampilkan URL, username, password, dan perintah bantuan.
+3. membangun satu image aplikasi bersama untuk init, web, worker, dan beat;
+4. menjalankan migration dan seed melalui service `init` satu kali;
+5. menjalankan web/worker/beat hanya jika init berhasil;
+6. membangun dan menjalankan Nginx;
+7. memvalidasi konfigurasi dan health check Nginx; dan
+8. menampilkan URL, username, password, dan perintah bantuan.
 
 Image aplikasi memakai entrypoint absolut `/usr/local/bin/obe-entrypoint` dan menormalisasi CRLF saat build. Karena itu checkout Windows tidak memerlukan `dos2unix`, perubahan permission, atau konfigurasi Git manual. Nginx juga dibangun ke image lokal tanpa bind mount/directory sharing.
 
@@ -25,6 +27,8 @@ Jangan mencampur quickstart dengan langkah instalasi Compose manual. Untuk mempe
 git pull
 ./scripts/quickstart.sh --clean
 ```
+
+Service `init` otomatis menjalankan `python manage.py migrate --noinput`. Pesan `No migrations to apply` berarti database sudah terbaru dan merupakan kondisi normal. GitHub Actions memeriksa kelengkapan/reversibilitas migration saat PR dan merge, tetapi database Docker lokal hanya dapat diperbarui oleh service `init` di komputer tempat aplikasi berjalan.
 
 Buka URL **Halaman login** yang dicetak setelah pesan `OBE Apps siap` muncul. URL default-nya <http://localhost:8000/accounts/login/>.
 
@@ -75,6 +79,8 @@ Jika belum berhasil, periksa pesan yang ditampilkan. Penyebab umum:
 | Port `8000` sudah dipakai | Jalankan `./scripts/quickstart.sh --port 8080`. |
 | `Nginx gagal memuat konfigurasi` | Lihat log yang otomatis dicetak; quickstart tidak akan lagi menyatakan aplikasi siap jika proxy gagal. |
 | `exec ./scripts/entrypoint.sh: no such file or directory` | Tarik versi terbaru lalu jalankan quickstart dengan `--clean`. Versi baru memakai entrypoint absolut dan menormalisasi CRLF di image. |
+| `No migrations to apply` | Tidak perlu tindakan; migration otomatis berhasil dan database sudah terbaru. Tunggu pesan `OBE Apps siap`. |
+| Service `init` gagal | Jalankan `docker compose logs init`; quickstart juga mencetak log init otomatis ketika startup gagal. |
 | `Forbidden (403) CSRF verification failed` | Pastikan URL sama dengan yang dicetak quickstart, lalu muat ulang halaman login agar token baru dibuat. Jalankan `./scripts/quickstart.sh --clean` bila stack berasal dari versi lama. Jangan menonaktifkan CSRF. |
 | Login ditolak setelah password `.env` berubah | Jalankan kembali `./scripts/quickstart.sh`; seed akan menyinkronkan seluruh akun demo. |
 

@@ -115,10 +115,13 @@ if [ "$clean" -eq 1 ]; then
   compose down --remove-orphans
 fi
 
-echo "Membangun dan menjalankan seluruh stack, termasuk Nginx, di background..."
+echo "Menyiapkan init database baru agar migrasi selalu dijalankan..."
+compose rm --force --stop init >/dev/null 2>&1 || true
+
+echo "Menjalankan init database, web, worker, beat, dan Nginx..."
 if ! compose up --detach --remove-orphans; then
   echo "Gagal menjalankan container. Ringkasan log:" >&2
-  compose logs --tail=100 web db valkey rabbitmq nginx >&2 || true
+  compose logs --tail=100 init web db valkey rabbitmq nginx >&2 || true
   echo "Jika port ${http_port} sedang dipakai, coba: ./scripts/quickstart.sh --port 8080" >&2
   exit 1
 fi
@@ -139,6 +142,7 @@ while [ "$attempt" -lt 90 ]; do
 
 OBE Apps siap : http://localhost:${http_port}
 Halaman login : http://localhost:${http_port}/accounts/login/
+Migrasi/seed  : otomatis melalui service init sebelum web dijalankan
 
 Akun demo (semuanya memakai password yang sama):
   Prodi       username: prodi
@@ -164,6 +168,6 @@ done
 
 echo "Aplikasi belum siap setelah 3 menit. Status dan log terakhir:" >&2
 compose ps >&2 || true
-compose logs --tail=100 web db valkey rabbitmq nginx >&2 || true
+compose logs --tail=100 init web db valkey rabbitmq nginx >&2 || true
 echo "Setelah memperbaiki pesan di atas, coba: ./scripts/quickstart.sh --clean" >&2
 exit 1
