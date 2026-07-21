@@ -137,9 +137,19 @@ while [ "$attempt" -lt 90 ]; do
     password="$(sed -n 's/^OBE_DEMO_PASSWORD=//p' .env | head -n 1)"
     cat <<EOF
 
-OBE Apps siap: http://localhost:${http_port}
-Username      : prodi / gpm / pengampu / mahasiswa
-Password      : ${password}
+OBE Apps siap : http://localhost:${http_port}
+Halaman login : http://localhost:${http_port}/accounts/login/
+
+Akun demo (semuanya memakai password yang sama):
+  Prodi       username: prodi
+  GPM         username: gpm
+  Pengampu    username: pengampu
+  Mahasiswa   username: mahasiswa
+  Password            : ${password}
+
+Password juga tersimpan sebagai OBE_DEMO_PASSWORD di file .env privat.
+Jika halaman login sudah terbuka sebelum container selesai diperbarui,
+muat ulang halaman tersebut sebelum login.
 
 Perintah bantuan:
   ${compose_label} logs -f web       # lihat log

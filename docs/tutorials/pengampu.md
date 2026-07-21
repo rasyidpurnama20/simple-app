@@ -4,12 +4,20 @@
 
 Pengampu memakai katalog dan pemetaan capaian untuk menyiapkan RPS, asesmen, serta bukti yang konsisten pada mata kuliah yang ditugaskan.
 
-## Masuk dan pilih mata kuliah
+## Instalasi dan login
 
-1. Masuk di <http://localhost:8000/accounts/login/> dengan username `pengampu`.
-2. Akses RPS, asesmen, file, AI, dan background job mengikuti assignment mata kuliah/periode yang sama; URL object di luar scope akan ditolak.
-3. Buka **Katalog** dan cari `MIK1624101` — Dasar Sistem.
-4. Catat semester, SKS, dan jenis mata kuliah sebagai baseline penyusunan RPS.
+1. Aktifkan Docker Desktop/Engine, lalu dari root repositori jalankan `./scripts/quickstart.sh`.
+2. Tunggu pesan `OBE Apps siap`. Buka URL **Halaman login** yang dicetak; default-nya <http://localhost:8000/accounts/login/>.
+3. Masuk dengan username `pengampu` dan password demo yang dicetak. Jika terlewat, buka `.env` dan lihat `OBE_DEMO_PASSWORD`.
+4. Jika muncul 403 CSRF, muat ulang halaman login. Untuk stack lama, jalankan `./scripts/quickstart.sh --clean` lalu buka kembali URL login.
+
+## Lima menit pertama
+
+1. Buka **Katalog** dan cari `MIK1624101` — Dasar Sistem.
+2. Catat semester, SKS, dan jenis mata kuliah sebagai baseline penyusunan RPS.
+3. Buka **Tugas Saya**, lalu cari **Periksa pemetaan CPMK dan bukti asesmen**.
+
+Akses RPS, asesmen, file, AI, dan background job mengikuti assignment mata kuliah/periode yang sama; URL object di luar scope akan ditolak.
 
 ## Periksa capaian mata kuliah
 

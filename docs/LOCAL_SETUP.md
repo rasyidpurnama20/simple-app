@@ -19,18 +19,25 @@ Skrip akan melakukan seluruh langkah berikut secara otomatis:
 
 Nginx dibangun dari `nginx:1.28.0-alpine`. Konfigurasinya disalin ke image lokal `obe-apps-nginx:local`, sehingga tidak ada instalasi Nginx tambahan atau bind mount/directory sharing di komputer host.
 
-Buka <http://localhost:8000> setelah pesan `OBE Apps siap` muncul.
+Buka URL **Halaman login** yang dicetak setelah pesan `OBE Apps siap` muncul. URL default-nya <http://localhost:8000/accounts/login/>.
 
 ## Akun demo
 
-| Peran | Username |
-|---|---|
-| Prodi | `prodi` |
-| GPM | `gpm` |
-| Pengampu | `pengampu` |
-| Mahasiswa | `mahasiswa` |
+| Peran | Username | Panduan penggunaan |
+|---|---|---|
+| Prodi | `prodi` | [Tutorial Prodi](tutorials/prodi.md) |
+| GPM | `gpm` | [Tutorial GPM](tutorials/gpm.md) |
+| Pengampu | `pengampu` | [Tutorial Pengampu](tutorials/pengampu.md) |
+| Mahasiswa | `mahasiswa` | [Tutorial Mahasiswa](tutorials/mahasiswa.md) |
 
-Keempat akun memakai password lokal yang ditampilkan oleh quickstart. Password juga tersimpan di `OBE_DEMO_PASSWORD` dalam file `.env` yang tidak di-commit.
+Keempat akun memakai password lokal yang sama dan ditampilkan oleh quickstart. Jika output terminal sudah tertutup, buka file `.env` lalu lihat nilai `OBE_DEMO_PASSWORD`. Jangan bagikan atau commit file tersebut. Quickstart/seed menyinkronkan ulang password akun demo dengan nilai `.env`, termasuk ketika password lokal berubah.
+
+Langkah login:
+
+1. tunggu sampai quickstart menampilkan `OBE Apps siap`;
+2. buka URL **Halaman login** yang dicetak;
+3. masukkan salah satu username pada tabel dan password `OBE_DEMO_PASSWORD`; dan
+4. pilih tutorial peran untuk skenario penggunaan pertamanya.
 
 ## Memperbaiki percobaan yang gagal
 
@@ -60,6 +67,8 @@ Jika belum berhasil, periksa pesan yang ditampilkan. Penyebab umum:
 | `Aplikasi belum siap` | Lihat ringkasan log yang otomatis dicetak, lalu jalankan quickstart dengan `--clean`. |
 | Port `8000` sudah dipakai | Jalankan `./scripts/quickstart.sh --port 8080`. |
 | `Nginx gagal memuat konfigurasi` | Lihat log yang otomatis dicetak; quickstart tidak akan lagi menyatakan aplikasi siap jika proxy gagal. |
+| `Forbidden (403) CSRF verification failed` | Pastikan URL sama dengan yang dicetak quickstart, lalu muat ulang halaman login agar token baru dibuat. Jalankan `./scripts/quickstart.sh --clean` bila stack berasal dari versi lama. Jangan menonaktifkan CSRF. |
+| Login ditolak setelah password `.env` berubah | Jalankan kembali `./scripts/quickstart.sh`; seed akan menyinkronkan seluruh akun demo. |
 
 ## Operasi sehari-hari
 

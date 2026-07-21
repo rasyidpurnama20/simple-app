@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,8 +76,11 @@ def test_quickstart_cleans_old_containers_and_reports_credentials(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "membangun Nginx melalui Docker Compose" in result.stdout
-    assert "OBE Apps siap: http://localhost:8088" in result.stdout
-    assert f"Password      : {demo_password(tmp_path / '.env')}" in result.stdout
+    assert "OBE Apps siap : http://localhost:8088" in result.stdout
+    assert "Halaman login : http://localhost:8088/accounts/login/" in result.stdout
+    for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
+        assert f"username: {username}" in result.stdout
+    assert f"Password            : {demo_password(tmp_path / '.env')}" in result.stdout
     calls = docker_log.read_text(encoding="utf-8")
     assert "8088 compose build --pull nginx" in calls
     assert "8088 compose down --remove-orphans" in calls
@@ -106,20 +110,59 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     nginx = (ROOT / "deploy/nginx/nginx.conf").read_text(encoding="utf-8")
     dockerfile = (ROOT / "deploy/nginx/Dockerfile").read_text(encoding="utf-8")
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    local_settings = (ROOT / "config/settings/local.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "/etc/nginx/proxy_params" not in nginx
     for header in ("Host", "X-Real-IP", "X-Forwarded-For", "X-Forwarded-Proto"):
         assert f"proxy_set_header {header}" in nginx
+    assert "proxy_set_header Host $http_host;" in nginx
     assert "FROM nginx:1.28.0-alpine" in dockerfile
     assert "COPY nginx.conf /etc/nginx/nginx.conf" in dockerfile
     assert "context: ./deploy/nginx" in compose
     assert "image: obe-apps-nginx:local" in compose
     assert "./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf" not in compose
     assert "${OBE_HTTP_PORT:-8000}:80" in compose
+    assert 'OBE_HTTP_PORT: "${OBE_HTTP_PORT:-8000}"' in compose
+    assert "CSRF_TRUSTED_ORIGINS = env.list" in local_settings
+    assert 'f"http://localhost:{_LOCAL_HTTP_PORT}"' in local_settings
+    assert 'f"http://127.0.0.1:{_LOCAL_HTTP_PORT}"' in local_settings
     assert "web: {condition: service_healthy}" in compose
     assert '["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz/"]' in compose
     assert "docker compose config --quiet" in workflow
     assert "docker compose build --pull nginx" in workflow
     assert "--add-host web:127.0.0.1" in workflow
     assert "obe-apps-nginx:local nginx -t" in workflow
+
+
+def test_local_settings_trust_the_selected_quickstart_port():
+    env = os.environ.copy()
+    env.update(
+        {
+            "DJANGO_SETTINGS_MODULE": "config.settings.local",
+            "OBE_ENV": "local",
+            "OBE_HTTP_PORT": "8088",
+            "OBE_SECRET_KEY": "local-test-only",
+        }
+    )
+    env.pop("OBE_CSRF_TRUSTED_ORIGINS", None)
+    env.pop("OBE_SECRET_KEY_FILE", None)
+
+    result = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-c",
+            (
+                "from django.conf import settings; "
+                'print(",".join(settings.CSRF_TRUSTED_ORIGINS))'
+            ),
+        ],
+        cwd=ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "http://localhost:8088,http://127.0.0.1:8088"
