@@ -152,10 +152,7 @@ def test_local_settings_trust_the_selected_quickstart_port():
         [
             sys.executable,
             "-c",
-            (
-                "from django.conf import settings; "
-                'print(",".join(settings.CSRF_TRUSTED_ORIGINS))'
-            ),
+            "from django.conf import settings; print(','.join(settings.CSRF_TRUSTED_ORIGINS))",
         ],
         cwd=ROOT,
         env=env,
