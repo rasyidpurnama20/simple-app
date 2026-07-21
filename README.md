@@ -45,6 +45,7 @@ Jika port `8000` sudah dipakai, jalankan `./scripts/quickstart.sh --port 8080` l
 Jika browser pernah membuka halaman login sebelum stack terbaru siap, muat ulang halaman login lalu coba kembali. Origin CSRF `localhost`/`127.0.0.1` untuk port quickstart dikonfigurasi otomatis; tidak perlu menonaktifkan perlindungan CSRF.
 
 Panduan error umum, stop/start, dan reset total tersedia di [panduan instalasi lokal](docs/LOCAL_SETUP.md).
+Penjelasan fungsi, urutan startup, alur request, status normal, dan diagnosis kedelapan container tersedia di [panduan container Docker Compose](docs/COMPOSE_CONTAINERS.md).
 
 ## Perintah sehari-hari
 
@@ -174,6 +175,7 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 ## Dokumentasi
 
 - [Arsitektur](docs/ARCHITECTURE.md)
+- [Delapan container Docker Compose](docs/COMPOSE_CONTAINERS.md)
 - [Kontrak API](docs/API.md)
 - [Operasi, backup, dan restore](docs/OPERATIONS.md)
 - [Keamanan](docs/SECURITY.md)

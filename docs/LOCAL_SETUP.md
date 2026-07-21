@@ -30,6 +30,8 @@ git pull
 
 Service `init` otomatis menjalankan `python manage.py migrate --noinput`. Pesan `No migrations to apply` berarti database sudah terbaru dan merupakan kondisi normal. GitHub Actions memeriksa kelengkapan/reversibilitas migration saat PR dan merge, tetapi database Docker lokal hanya dapat diperbarui oleh service `init` di komputer tempat aplikasi berjalan.
 
+Untuk memahami fungsi `db`, `valkey`, `rabbitmq`, `init`, `web`, `worker`, `beat`, dan `nginx` beserta alur komunikasinya, baca [panduan delapan container Docker Compose](COMPOSE_CONTAINERS.md).
+
 Buka URL **Halaman login** yang dicetak setelah pesan `OBE Apps siap` muncul. URL default-nya <http://localhost:8000/accounts/login/>.
 
 ## Akun demo
