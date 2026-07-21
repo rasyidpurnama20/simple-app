@@ -19,10 +19,16 @@ COPY config ./config
 COPY obe ./obe
 RUN pip install --upgrade pip && pip install .
 COPY . .
+COPY scripts/entrypoint.sh /usr/local/bin/obe-entrypoint
 COPY --from=assets /build/static/vendor ./static/vendor
-RUN mkdir -p /app/var/evidence /app/var/uploads /app/staticfiles && chown -R obe:obe /app
+RUN sed -i 's/\r$//' /usr/local/bin/obe-entrypoint \
+    && chmod 0755 /usr/local/bin/obe-entrypoint \
+    && test "$(head -n 1 /usr/local/bin/obe-entrypoint)" = '#!/bin/sh' \
+    && mkdir -p /app/var/evidence /app/var/uploads /app/staticfiles \
+    && chown -R obe:obe /app
 USER obe
 RUN python manage.py collectstatic --noinput --settings=config.settings.local
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=3)"
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "--access-logfile", "-"]
+ENTRYPOINT ["/usr/local/bin/obe-entrypoint"]
+CMD ["web"]

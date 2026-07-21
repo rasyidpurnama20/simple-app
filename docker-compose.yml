@@ -24,6 +24,7 @@ services:
     healthcheck: {test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 10s, timeout: 5s, retries: 10}
     restart: unless-stopped
   web: &app
+    image: obe-apps-web:local
     build: .
     env_file: .env
     environment:
@@ -37,7 +38,6 @@ services:
       db: {condition: service_healthy}
       valkey: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
-    command: ["./scripts/entrypoint.sh"]
     restart: unless-stopped
   worker:
     <<: *app

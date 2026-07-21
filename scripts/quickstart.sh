@@ -101,11 +101,11 @@ fi
 validate_port "$http_port"
 export OBE_HTTP_PORT="$http_port"
 
-echo "Mengunduh base image dan membangun Nginx melalui Docker Compose..."
-if ! compose build --pull nginx; then
-  echo "Peringatan: base image Nginx tidak dapat diperbarui; mencoba cache lokal." >&2
-  if ! compose build nginx; then
-    echo "Gagal membangun container Nginx." >&2
+echo "Membangun satu image aplikasi dan image Nginx melalui Docker Compose..."
+if ! compose build --pull web nginx; then
+  echo "Peringatan: base image tidak dapat diperbarui; mencoba cache lokal." >&2
+  if ! compose build web nginx; then
+    echo "Gagal membangun image aplikasi atau Nginx." >&2
     exit 1
   fi
 fi
@@ -116,7 +116,7 @@ if [ "$clean" -eq 1 ]; then
 fi
 
 echo "Membangun dan menjalankan seluruh stack, termasuk Nginx, di background..."
-if ! compose up --build --detach --remove-orphans; then
+if ! compose up --detach --remove-orphans; then
   echo "Gagal menjalankan container. Ringkasan log:" >&2
   compose logs --tail=100 web db valkey rabbitmq nginx >&2 || true
   echo "Jika port ${http_port} sedang dipakai, coba: ./scripts/quickstart.sh --port 8080" >&2

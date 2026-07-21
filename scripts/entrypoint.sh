@@ -1,5 +1,10 @@
 #!/bin/sh
 set -eu
+
+if [ "${1:-web}" != "web" ]; then
+  exec "$@"
+fi
+
 python manage.py migrate --noinput
 if [ "${OBE_ENV:-production}" = "local" ]; then
   python manage.py seed_demo

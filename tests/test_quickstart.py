@@ -75,19 +75,19 @@ def test_quickstart_cleans_old_containers_and_reports_credentials(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "membangun Nginx melalui Docker Compose" in result.stdout
+    assert "satu image aplikasi dan image Nginx" in result.stdout
     assert "OBE Apps siap : http://localhost:8088" in result.stdout
     assert "Halaman login : http://localhost:8088/accounts/login/" in result.stdout
     for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
         assert f"username: {username}" in result.stdout
     assert f"Password            : {demo_password(tmp_path / '.env')}" in result.stdout
     calls = docker_log.read_text(encoding="utf-8")
-    assert "8088 compose build --pull nginx" in calls
+    assert "8088 compose build --pull web nginx" in calls
     assert "8088 compose down --remove-orphans" in calls
-    assert "8088 compose up --build --detach --remove-orphans" in calls
+    assert "8088 compose up --detach --remove-orphans" in calls
     assert "8088 compose exec -T nginx nginx -t" in calls
     assert "8088 compose exec -T nginx wget -q --spider http://127.0.0.1/healthz/" in calls
-    assert calls.index("compose build --pull nginx") < calls.index("compose up --build")
+    assert calls.index("compose build --pull web nginx") < calls.index("compose up --detach")
 
 
 def test_quickstart_rejects_invalid_port_before_using_docker(tmp_path):
@@ -109,6 +109,8 @@ def test_quickstart_rejects_invalid_port_before_using_docker(tmp_path):
 def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     nginx = (ROOT / "deploy/nginx/nginx.conf").read_text(encoding="utf-8")
     dockerfile = (ROOT / "deploy/nginx/Dockerfile").read_text(encoding="utf-8")
+    app_dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     local_settings = (ROOT / "config/settings/local.py").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
@@ -119,6 +121,13 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     assert "proxy_set_header Host $http_host;" in nginx
     assert "FROM nginx:1.28.0-alpine" in dockerfile
     assert "COPY nginx.conf /etc/nginx/nginx.conf" in dockerfile
+    assert "*.sh text eol=lf" in attributes
+    assert "COPY scripts/entrypoint.sh /usr/local/bin/obe-entrypoint" in app_dockerfile
+    assert "sed -i 's/\\r$//' /usr/local/bin/obe-entrypoint" in app_dockerfile
+    assert 'ENTRYPOINT ["/usr/local/bin/obe-entrypoint"]' in app_dockerfile
+    assert 'CMD ["web"]' in app_dockerfile
+    assert "image: obe-apps-web:local" in compose
+    assert 'command: ["./scripts/entrypoint.sh"]' not in compose
     assert "context: ./deploy/nginx" in compose
     assert "image: obe-apps-nginx:local" in compose
     assert "./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf" not in compose
@@ -133,6 +142,26 @@ def test_nginx_runtime_contract_is_self_contained_and_health_checked():
     assert "docker compose build --pull nginx" in workflow
     assert "--add-host web:127.0.0.1" in workflow
     assert "obe-apps-nginx:local nginx -t" in workflow
+    assert "docker run --rm obe-apps:ci /bin/sh" in workflow
+
+
+def test_entrypoint_dispatches_non_web_commands():
+    result = subprocess.run(  # noqa: S603
+        [
+            "/bin/sh",
+            str(ROOT / "scripts/entrypoint.sh"),
+            "/bin/sh",
+            "-c",
+            "printf entrypoint-ok",
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "entrypoint-ok"
 
 
 def test_local_settings_trust_the_selected_quickstart_port():
