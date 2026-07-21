@@ -1,5 +1,16 @@
 # OBE Apps
 
+> **Jalur rebuild v1 sedang dimulai secara bertahap.** Untuk mencoba fondasi paling
+> sederhana dengan hanya dua container, buka [Rebuild Tahap 0](rebuild/README.md).
+> Aplikasi lama di bawah tetap dipertahankan sebagai referensi dan tidak digunakan
+> untuk menilai kelulusan Tahap 0.
+
+```bash
+docker compose -f rebuild/docker-compose.yml up --build
+```
+
+Tahap 1 tidak akan dimulai sebelum checklist Tahap 0 dicoba dan disetujui pengguna.
+
 Platform OBE yang ringkas untuk menghubungkan **kurikulum → RPS → asesmen → bukti → capaian → CQI**. Aplikasi memakai Django + DRF, HTMX, Tailwind CSS, PostgreSQL, Valkey, RabbitMQ/Celery, dan Apache ECharts yang di-host lokal.
 
 Sumber kebutuhan normatif adalah `Spesifikasi_Utama_Pengembangan_OBE_Apps_PR-01-PR-88.md` dengan SHA-256 `f404527ecfd3b81000e8fcb640a469147c60d0308ef2930fdbe3811eae610be2`. Kebutuhan di luar dokumen tersebut wajib diajukan melalui PR baru. Bukti implementasi per requirement dicatat di [traceability](docs/TRACEABILITY.md).
@@ -174,6 +185,11 @@ Gate mencakup Ruff, format, migration drift, unit/integration/contract tests, ar
 
 ## Dokumentasi
 
+- [Rebuild v1 dan aturan persetujuan per tahap](rebuild/docs/README.md)
+- [Tujuan dan kriteria penerimaan Tahap 0](rebuild/docs/STAGE_0.md)
+- [Peran Prodi, GPM, Pengampu, dan Mahasiswa pada rebuild](rebuild/docs/ROLES.md)
+- [Katalog fitur dan tutorial Tahap 0](rebuild/docs/FEATURES.md)
+- [Tutorial uji pengguna Tahap 0](rebuild/docs/USER_TEST.md)
 - [Arsitektur](docs/ARCHITECTURE.md)
 - [Delapan container Docker Compose](docs/COMPOSE_CONTAINERS.md)
 - [Kontrak API](docs/API.md)

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — OBE Apps Tahap 0{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="eyebrow">Fondasi berhasil diakses</div>
+  {% if role %}
+    <h1>{{ role.label }}</h1>
+    <p class="success"><strong>Tujuan peran:</strong> {{ role.purpose }}</p>
+
+    <h2>Yang dapat dilakukan sekarang</h2>
+    <ul>
+      <li>Memastikan akun dan password bekerja.</li>
+      <li>Memastikan sistem mengenali peran Anda dengan benar.</li>
+      <li>Membaca batas tanggung jawab sebelum fitur dibangun.</li>
+    </ul>
+
+    <h2>Tanggung jawab pada tahap berikutnya</h2>
+    <ul>
+      {% for item in role.future_responsibilities %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+  {% else %}
+    <h1>Peran belum ditetapkan</h1>
+    <p class="notice">Akun ini berhasil login, tetapi belum memiliki salah satu dari empat peran Tahap 0.</p>
+  {% endif %}
+
+  <p class="notice"><strong>Belum tersedia:</strong> kurikulum, CPL, mata kuliah, RPS, asesmen, nilai, analitik, CQI, dan impor data besar. Fitur tersebut sengaja ditunda sampai tahapnya disetujui.</p>
+
+  <p class="meta">Login sebagai <strong>{{ request.user.username }}</strong>.</p>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button class="secondary" type="submit">Keluar</button>
+  </form>
+</section>
+{% endblock %}
