@@ -44,6 +44,8 @@ jobs:
           python manage.py makemigrations --check --dry-run
           python manage.py showmigrations --plan > migration-plan.txt
           python scripts/check_migration_reversibility.py
+      - name: Apply migrations to CI database
+        run: python manage.py migrate --noinput
       - run: python tests/test_architecture.py
       - name: Run tests and critical-module coverage gate
         run: |
