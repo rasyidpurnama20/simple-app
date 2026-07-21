@@ -54,6 +54,7 @@ ignore = ["E501", "DJ008", "DJ012", "S101", "S106", "S310"]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
 addopts = "-q --strict-markers"
+norecursedirs = ["rebuild"]
 
 [tool.coverage.run]
 branch = true

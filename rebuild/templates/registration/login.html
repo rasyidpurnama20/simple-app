@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Login — OBE Apps Tahap 0{% endblock %}
+
+{% block content %}
+<section class="card">
+  <div class="eyebrow">Rebuild v1 · Tahap 0</div>
+  <h1>Masuk untuk menguji fondasi</h1>
+  <p>Di tahap ini Anda hanya memeriksa login dan identitas peran. Belum ada fitur OBE atau data akademik.</p>
+
+  {% if form.errors %}
+    <p class="notice">Username atau password tidak cocok. Gunakan akun demo pada panduan Tahap 0.</p>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <label for="id_username">Username</label>
+    {{ form.username }}
+    <label for="id_password">Password</label>
+    {{ form.password }}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button type="submit">Masuk</button>
+  </form>
+
+  <p class="meta">Akun demo: prodi, gpm, pengampu, atau mahasiswa. Password default: belajar-tahap0.</p>
+</section>
+{% endblock %}

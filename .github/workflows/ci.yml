@@ -13,6 +13,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rebuild-stage0:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate the two-container contract
+        run: |
+          docker compose -f rebuild/docker-compose.yml config --quiet
+          test "$(docker compose -f rebuild/docker-compose.yml config --services | sort | tr '\n' ' ')" = "db web "
+      - name: Build and start Stage 0
+        run: docker compose -f rebuild/docker-compose.yml up --build --detach --wait
+      - name: Run Stage 0 tests in the application image
+        run: docker compose -f rebuild/docker-compose.yml exec -T web python manage.py test
+      - name: Verify restart and persisted demo accounts
+        run: |
+          docker compose -f rebuild/docker-compose.yml exec -T web python manage.py shell -c \
+            "from django.contrib.auth.models import Group; Group.objects.get_or_create(name='ci-restart-marker')"
+          docker compose -f rebuild/docker-compose.yml restart web
+          docker compose -f rebuild/docker-compose.yml up --detach --wait
+          docker compose -f rebuild/docker-compose.yml exec -T web python manage.py verify_stage0
+          docker compose -f rebuild/docker-compose.yml exec -T web python manage.py shell -c \
+            "from django.contrib.auth.models import Group; assert Group.objects.filter(name='ci-restart-marker').exists()"
+      - name: Show diagnostic state on failure
+        if: failure()
+        run: |
+          docker compose -f rebuild/docker-compose.yml ps --all
+          docker compose -f rebuild/docker-compose.yml logs --no-color --tail=200
+      - name: Clean the ephemeral CI stack
+        if: always()
+        run: docker compose -f rebuild/docker-compose.yml down --volumes
+
   test:
     runs-on: ubuntu-latest
     services:
