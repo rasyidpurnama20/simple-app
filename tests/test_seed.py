@@ -137,3 +137,29 @@ def test_seed_keeps_demo_credentials_in_sync(monkeypatch):
     ensure_demo_assignments()
     for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
         assert User.objects.get(username=username).check_password("rotated-demo-password")
+
+
+@pytest.mark.django_db
+def test_seed_restart_preserves_an_existing_immutable_curriculum(monkeypatch, capsys):
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", "initial-demo-password")
+    call_command("seed_demo")
+
+    archived = CurriculumVersion.objects.get(source_id="CURR-LEGACY-DEMO-V1")
+    CurriculumVersion.objects.filter(pk=archived.pk).update(
+        source_checksum="checksum-from-prior-full-dataset-import",
+        approval_snapshot={"source": "prior-full-dataset-import"},
+    )
+
+    monkeypatch.setenv("OBE_DEMO_PASSWORD", "restarted-demo-password")
+    call_command("seed_demo")
+
+    archived.refresh_from_db()
+    assert archived.source_checksum == "checksum-from-prior-full-dataset-import"
+    assert archived.approval_snapshot == {"source": "prior-full-dataset-import"}
+    assert "data kurikulum immutable dipertahankan" in capsys.readouterr().out
+    for username in ("prodi", "gpm", "pengampu", "mahasiswa"):
+        assert (
+            get_user_model()
+            .objects.get(username=username)
+            .check_password("restarted-demo-password")
+        )
