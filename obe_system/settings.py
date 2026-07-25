@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "rps",
     "attainment",
     "injection",
+    "excel_import",
     "web",
 ]
 

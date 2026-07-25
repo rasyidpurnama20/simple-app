@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Curriculum - OBE System{% endblock %}
+{% block content %}
+<h1>Curriculum Workspace</h1>
+<p>Kelola kurikulum, CPL, indikator, mata kuliah, dan kontribusi.</p>
+
+<section>
+  <h2>Daftar Kurikulum</h2>
+  {% if curricula %}
+  <table style="width:100%; border-collapse:collapse;">
+    <thead><tr><th>Nama</th><th>Tahun</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+    {% for c in curricula %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td>{{ c.name }}</td>
+      <td>{{ c.year }}</td>
+      <td>{{ c.status }}</td>
+      <td>
+        <a href="{% url 'web:curriculum_cpls' c.pk %}">CPL</a> |
+        <a href="{% url 'web:curriculum_courses' c.pk %}">Courses</a>
+        {% if c.status == 'draft' %}
+        | <form method="post" action="{% url 'web:curriculum_activate' c.pk %}" style="display:inline;">
+          {% csrf_token %}<button type="submit">Activate</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Belum ada kurikulum.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Buat Kurikulum Baru</h2>
+  <form method="post" action="{% url 'web:curriculum_create' %}">
+    {% csrf_token %}
+    <input name="name" placeholder="Nama Kurikulum" required>
+    <input name="year" placeholder="Tahun">
+    <button type="submit">Buat</button>
+  </form>
+</section>
+{% endblock %}

@@ -10,7 +10,7 @@ Property-based tests use **Hypothesis** (min. 100 iterations, tagged `Feature: o
 
 ## Tasks
 
-- [ ] 1. Project scaffolding, Docker Compose, and shared/core foundation
+- [x] 1. Project scaffolding, Docker Compose, and shared/core foundation
   - [x] 1.1 Scaffold Django project, apps, settings, and Docker Compose
     - Create the Django 5.x project with focused apps: `core`, `timeline`, `curriculum`, `rps`, `attainment`, `injection`, `web` (presentation)
     - Configure PostgreSQL 16 settings, `requirements.txt` (Django, psycopg, HTMX helpers, Hypothesis, pytest-django)
@@ -106,142 +106,142 @@ Property-based tests use **Hypothesis** (min. 100 iterations, tagged `Feature: o
     - **Property 12: Home grouping maps status to the correct bucket** (Validates: Requirements 4.1, 4.2, 4.3, 4.4)
     - **Property 13: Explanations are complete** (Validates: Requirements 4.5, 13.2, 14.1)
 
-- [ ] 3. Checkpoint - Timeline_Engine
+- [x] 3. Checkpoint - Timeline_Engine
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement Curriculum_Module
-  - [ ] 4.1 Create Curriculum_Module models
+- [x] 4. Implement Curriculum_Module
+  - [x] 4.1 Create Curriculum_Module models
     - Implement `Curriculum` (status draft|active|archived), `CPL`, `CPLIndicator` (numeric target_value), `Course`, `CourseCPLContribution` (contribution_level Introduce|Reinforce|Master, many-to-many course↔CPL)
     - Add a partial unique index `UNIQUE (prodi) WHERE status='active'`; create migrations; record Production_Readiness_Fields
     - _Requirements: 6.1, 6.2, 6.3, 6.6, 7.2, 7.3_
 
-  - [ ] 4.2 Implement CurriculumService lifecycle and single-active enforcement
+  - [x] 4.2 Implement CurriculumService lifecycle and single-active enforcement
     - Implement `create_curriculum` and `activate_curriculum` enforcing at most one active curriculum per prodi, rejecting a second activation with a message naming the existing active curriculum and the corrective step; enforce draft/active/archived lifecycle
     - _Requirements: 6.4, 6.5, 6.6_
 
-  - [ ]* 4.3 Write property tests for curriculum lifecycle
+  - [x]* 4.3 Write property tests for curriculum lifecycle
     - **Property 15: At most one active curriculum per prodi** (Validates: Requirements 6.4, 6.5)
     - **Property 16: Curriculum status stays within its lifecycle** (Validates: Requirements 6.6)
 
-  - [ ] 4.4 Implement Course→CPL contribution mapping
+  - [x] 4.4 Implement Course→CPL contribution mapping
     - Implement `map_course_to_cpl` requiring a contribution level in {Introduce, Reinforce, Master}, rejecting any other value with the allowed values listed; support many-to-many in both directions
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-  - [ ]* 4.5 Write property and unit tests for contribution mapping
+  - [x]* 4.5 Write property and unit tests for contribution mapping
     - **Property 17: Contribution level is constrained** (Validates: Requirements 7.1, 7.4)
     - Unit: curriculum→CPL→indicator cardinality (6.1), many-to-many course↔CPL (7.2, 7.3); Edge: reject invalid contribution level (7.4)
 
-- [ ] 5. Implement RPS_Module
-  - [ ] 5.1 Create RPS_Module models
+- [x] 5. Implement RPS_Module
+  - [x] 5.1 Create RPS_Module models
     - Implement `RPS` (FKs to one Course, Curriculum, class, period), `CPMK` (M2M derived_from CPLs), `SubCPMK`, `SubCPMKIndicator`, `AssessmentInstrument`, `Rubric`, `RubricCriterion` (weight), `RubricLevel` (label, score), `RubricCriterion.mapped_indicators` M2M, `Score`
     - Create migrations; record Production_Readiness_Fields on RPS, Assessment_Instrument, and Rubric
     - _Requirements: 8.1, 8.3, 8.4, 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 5.2 Implement RPS creation and CPMK derivation binding
+  - [x] 5.2 Implement RPS creation and CPMK derivation binding
     - Implement `create_rps` (bind to exactly one course/curriculum/class/period) and `add_cpmk` deriving only from CPLs of the bound curriculum (via CurriculumService), rejecting foreign CPLs with an explainable message
     - _Requirements: 8.1, 8.2, 8.5_
 
-  - [ ]* 5.3 Write property and unit tests for RPS binding
+  - [x]* 5.3 Write property and unit tests for RPS binding
     - **Property 18: CPMK derives only from bound-curriculum CPLs** (Validates: Requirements 8.2, 8.5)
     - Unit: CPMK→Sub_CPMK→indicators cardinality (8.3); Edge: reject CPMK from foreign CPL (8.5)
 
-  - [ ] 5.4 Implement rubric definition and criterion→indicator mapping
+  - [x] 5.4 Implement rubric definition and criterion→indicator mapping
     - Implement `define_rubric` creating criteria with levels/scores/weights and mapping each criterion to one or more Sub_CPMK indicators
     - _Requirements: 9.1, 9.2, 9.3_
 
-  - [ ]* 5.5 Write unit tests for rubric structure
+  - [x]* 5.5 Write unit tests for rubric structure
     - Test instrument→rubric cardinality (9.1) and criterion level/score/weight storage (9.2)
     - _Requirements: 9.1, 9.2_
 
-  - [ ] 5.6 Implement submit_rps weight-sum and coverage validation
+  - [x] 5.6 Implement submit_rps weight-sum and coverage validation
     - On `submit_rps`, verify each rubric's criterion weights sum to 100% (block with current/required sum) and every Sub_CPMK indicator maps to at least one criterion (block listing each unmapped indicator and corrective step)
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ]* 5.7 Write property tests for RPS submission validation
+  - [x]* 5.7 Write property tests for RPS submission validation
     - **Property 19: RPS submission requires weights summing to 100%** (Validates: Requirements 10.1, 10.3)
     - **Property 20: RPS submission requires full indicator coverage** (Validates: Requirements 10.2, 10.4)
 
-- [ ] 6. Checkpoint - Curriculum and RPS modules
+- [x] 6. Checkpoint - Curriculum and RPS modules
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Implement Attainment_Engine
-  - [ ] 7.1 Create Attainment_Engine models and formula config
+- [x] 7. Implement Attainment_Engine
+  - [x] 7.1 Create Attainment_Engine models and formula config
     - Implement `CalculationFormula` (name, version, level, definition as versioned config) and `AttainmentResult` (outcome_ref, actual_value, target_value, gap, formula_name, formula_version, M2M traceability to Score)
     - Create migrations
     - _Requirements: 11.2, 11.3, 11.4, 18.2_
 
-  - [ ] 7.2 Implement the attainment calculation chain
+  - [x] 7.2 Implement the attainment calculation chain
     - Implement `calculate` aggregating Rubric_Criterion → CPL_Indicator → Sub_CPMK → CPMK → CPL using named/versioned formulas (reading scores/outcomes via RPSService), storing actual/target/gap and formula identity, retaining traceability, running inside a transaction
     - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-  - [ ]* 7.3 Write property tests for calculation results
+  - [x]* 7.3 Write property tests for calculation results
     - **Property 21: Attainment results record formula identity and correct gap** (Validates: Requirements 11.2, 11.3)
     - **Property 22: Attainment results are traceable to source scores** (Validates: Requirements 11.1, 11.4)
 
-  - [ ] 7.4 Implement data-integrity halt
+  - [x] 7.4 Implement data-integrity halt
     - Before aggregating, validate source data; halt (leaving existing results unchanged) on missing required scores or out-of-range scores, returning a message identifying the offending data and corrective step
     - _Requirements: 12.1, 12.2, 12.3_
 
-  - [ ]* 7.5 Write property and edge tests for the halt behavior
+  - [x]* 7.5 Write property and edge tests for the halt behavior
     - **Property 23: Bad data halts calculation without side effects** (Validates: Requirements 12.1, 12.2, 12.3)
     - Edge: halt on missing/out-of-range score (12.1, 12.2)
 
-  - [ ] 7.6 Implement gap-driven evaluation task creation
+  - [x] 7.6 Implement gap-driven evaluation task creation
     - For each result where actual < target, create an evaluation Task in the cycle's Timeline_Instance via TimelineService, populated with a complete explanation (outcome, actual, target, gap); create none when actual ≥ target
     - _Requirements: 13.1, 13.2, 13.3_
 
-  - [ ]* 7.7 Write property test for gap-driven tasks
+  - [x]* 7.7 Write property test for gap-driven tasks
     - **Property 24: Evaluation tasks are created exactly for unmet outcomes**
     - **Validates: Requirements 13.1, 13.3**
 
-- [ ] 8. Checkpoint - Attainment_Engine
+- [x] 8. Checkpoint - Attainment_Engine
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Implement Data_Injection_Tool and demo seed
-  - [ ] 9.1 Implement idempotent, logged management commands and CSV/JSON importers
+- [x] 9. Implement Data_Injection_Tool and demo seed
+  - [x] 9.1 Implement idempotent, logged management commands and CSV/JSON importers
     - Implement Django management commands and CSV/JSON importers loading synthetic data via keyed ORM upserts (idempotent), writing a `DataInjectionLog` record per load/reset, using only the ORM with parameterized queries (no string-concatenated SQL)
     - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-  - [ ] 9.2 Author demo seed scenarios
+  - [x] 9.2 Author demo seed scenarios
     - Seed demo Kaprodi and Lecturer accounts and a full vertical-loop scenario (template, cycle, curriculum, RPS with rubrics, scores) usable by the UI
     - _Requirements: 15.1, 17.1_
 
-  - [ ]* 9.3 Write property and unit tests for data injection
+  - [x]* 9.3 Write property and unit tests for data injection
     - **Property 27: Data injection is idempotent** (Validates: Requirements 17.2)
     - Unit: data injection writes a log record (17.3); static inspection: ORM/parameterized-query usage, no string-concatenated SQL (17.4)
 
-  - [ ]* 9.4 Write property test for production-readiness fields
+  - [x]* 9.4 Write property test for production-readiness fields
     - **Property 3: Production-readiness fields are always populated**
     - **Validates: Requirements 1.3, 6.3, 8.4, 9.4**
 
-- [ ] 10. Implement UI workspaces (thin views + HTMX)
-  - [ ] 10.1 Implement Home and Timeline workspaces
+- [x] 10. Implement UI workspaces (thin views + HTMX)
+  - [x] 10.1 Implement Home and Timeline workspaces
     - Build thin views calling HomeService and TimelineService: Home (Do Now/Next/Waiting on Others) and Timeline (cycles, templates, instances, phases, milestones, tasks, dependencies, history)
     - _Requirements: 4.1, 16.1, 18.4_
 
-  - [ ] 10.2 Implement Curriculum and Learning workspaces with HTMX wizards
+  - [x] 10.2 Implement Curriculum and Learning workspaces with HTMX wizards
     - Build Curriculum workspace (curricula, CPLs, indicators, courses, contributions) and Learning workspace RPS authoring wizards (CPMK/Sub-CPMK, instruments, rubrics) with autosave: each step persists via the service layer before the next renders, with prefill on return
     - _Requirements: 16.1, 16.2, 16.3, 18.4_
 
-  - [ ] 10.3 Implement Attainment & Quality workspace
+  - [x] 10.3 Implement Attainment & Quality workspace
     - Build thin views calling AttainmentService to run calculations and view actual/target/gap, traceability, and gap-driven tasks; confirm no more than five workspaces total
     - _Requirements: 16.1, 18.4_
 
-  - [ ]* 10.4 Write property and structural tests for the UI layer
+  - [x]* 10.4 Write property and structural tests for the UI layer
     - **Property 26: Wizard steps persist before advancing** (Validates: Requirements 16.2, 16.3)
     - Structural: views contain no business logic and call services (18.4); exactly five workspaces (16.1)
 
-- [ ] 11. Integration and smoke tests, final wiring
-  - [ ] 11.1 Wire modules, URLs, and cross-module service calls end to end
+- [x] 11. Integration and smoke tests, final wiring
+  - [x] 11.1 Wire modules, URLs, and cross-module service calls end to end
     - Register all app URLs, wire the base template/navigation for the five workspaces, and confirm Attainment→Timeline and RPS→Curriculum collaborations run through service interfaces only
     - _Requirements: 16.1, 18.4_
 
-  - [ ]* 11.2 Write integration and smoke tests
+  - [x]* 11.2 Write integration and smoke tests
     - Integration: `docker compose up -d --build` starts web + db and the app connects to the database (18.3)
     - Smoke: demo accounts seeded (15.1), Dev_Banner present (15.3), no auth enforcement (15.4), migrations applied not seed scripts (18.1)
     - _Requirements: 15.1, 15.3, 15.4, 18.1, 18.3_
 
-- [ ] 12. Final checkpoint - Ensure all tests pass
+- [x] 12. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

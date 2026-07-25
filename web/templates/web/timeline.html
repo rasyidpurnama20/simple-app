@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Timeline - OBE System{% endblock %}
+{% block content %}
+<h1>Timeline Workspace</h1>
+<p>Kelola siklus OBE, template, fase, milestone, dan tugas.</p>
+
+<section>
+  <h2>Siklus OBE</h2>
+  {% if cycles %}
+  <ul>
+    {% for cycle in cycles %}
+    <li><strong>{{ cycle.name }}</strong> ({{ cycle.academic_year }}) &mdash; {{ cycle.status }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Belum ada siklus OBE.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Template Timeline</h2>
+  {% if templates %}
+  <ul>
+    {% for t in templates %}
+    <li>{{ t.name }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Belum ada template.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Excel Import - OBE System{% endblock %}
+{% block content %}
+<h1>Excel Import</h1>
+<p>Unduh template, isi data, dan unggah untuk divalidasi dan disimpan.</p>
+
+<section>
+  <h2>Unduh Template</h2>
+  <ul>
+    {% for t in types %}
+    <li>
+      {{ t.type }}
+      {% if t.is_implemented %}
+        <a href="{% url 'excel_import:generate' %}?type={{ t.type }}">[Unduh]</a>
+      {% else %}
+        <em>(belum tersedia)</em>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section>
+  <h2>Unggah File</h2>
+  <form method="post" action="{% url 'excel_import:upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" accept=".xlsx" required>
+    <button type="submit">Unggah & Validasi</button>
+  </form>
+</section>
+
+<section>
+  <h2>Batch Terbaru</h2>
+  {% if batches %}
+  <table style="width:100%; border-collapse:collapse;">
+    <thead><tr><th>ID</th><th>Tipe</th><th>Status</th><th>Tanggal</th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td>{{ b.id|truncatechars:8 }}</td>
+      <td>{{ b.template_type }}</td>
+      <td>{{ b.batch_status }}</td>
+      <td>{{ b.created_time }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Belum ada batch import.</p>
+  {% endif %}
+</section>
+{% endblock %}

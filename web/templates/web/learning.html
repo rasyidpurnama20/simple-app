@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Learning - OBE System{% endblock %}
+{% block content %}
+<h1>Learning Workspace</h1>
+<p>Penyusunan RPS, CPMK, Sub-CPMK, instrumen penilaian, dan rubrik.</p>
+
+<section>
+  <h2>Daftar RPS</h2>
+  {% if rps_list %}
+  <table style="width:100%; border-collapse:collapse;">
+    <thead><tr><th>Mata Kuliah</th><th>Kelas</th><th>Periode</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for rps in rps_list %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td>{{ rps.course_id }}</td>
+      <td>{{ rps.class_name }}</td>
+      <td>{{ rps.period }}</td>
+      <td>{{ rps.status }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Belum ada RPS.</p>
+  {% endif %}
+</section>
+{% endblock %}

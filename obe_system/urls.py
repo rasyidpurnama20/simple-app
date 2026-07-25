@@ -9,4 +9,5 @@ from django.urls import include, path
 
 urlpatterns = [
     path("", include("web.urls", namespace="web")),
+    path("import/", include("excel_import.urls", namespace="excel_import")),
 ]
