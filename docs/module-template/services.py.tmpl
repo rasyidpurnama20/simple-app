@@ -1,6 +1,0 @@
-from django.db import transaction
-
-
-@transaction.atomic
-def execute(*, actor, payload: dict):
-    raise NotImplementedError

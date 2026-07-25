@@ -1,1 +1,0 @@
-"""Integration command package."""

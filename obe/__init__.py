@@ -1,1 +1,0 @@
-"""OBE Apps modular monolith."""

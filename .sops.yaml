@@ -1,4 +1,0 @@
-creation_rules:
-  - path_regex: deploy/sops/.*\.enc\.ya?ml$
-    age: age1replacewithproductionrecipient
-
