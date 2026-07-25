@@ -1,0 +1,17 @@
+{# A single Home task card with the full six-facet explanation (Req 4.5). #}
+<div class="task">
+    <div class="t-title">{{ task.title }}</div>
+    <span class="t-status">{{ task.status_label }}</span>
+    {% for advisory in task.advisories %}
+        <div class="facet">{{ advisory }}</div>
+    {% endfor %}
+    <details>
+        <summary>Penjelasan</summary>
+        <div class="facet"><b>Apa:</b> {{ task.explanation.what }}</div>
+        <div class="facet"><b>Mengapa:</b> {{ task.explanation.why }}</div>
+        <div class="facet"><b>Siapa:</b> {{ task.explanation.who }}</div>
+        <div class="facet"><b>Kapan:</b> {{ task.explanation.when }}</div>
+        <div class="facet"><b>Bagaimana:</b> {{ task.explanation.how }}</div>
+        <div class="facet"><b>Selanjutnya:</b> {{ task.explanation.next }}</div>
+    </details>
+</div>

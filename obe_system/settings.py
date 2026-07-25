@@ -88,16 +88,29 @@ TEMPLATES = [
 WSGI_APPLICATION = "obe_system.wsgi.application"
 
 # --- Database (PostgreSQL 16) -------------------------------------------
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "obe_system"),
-        "USER": os.environ.get("POSTGRES_USER", "obe"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "obe_password"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+# PostgreSQL is the default engine used by Docker Compose and production.
+# For local test runs where PostgreSQL is unavailable, set
+# DJANGO_DB_ENGINE=django.db.backends.sqlite3 to run against SQLite. This does
+# not change the production/Docker configuration in any way.
+_DB_ENGINE = os.environ.get("DJANGO_DB_ENGINE", "django.db.backends.postgresql")
+if _DB_ENGINE == "django.db.backends.sqlite3":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.environ.get("SQLITE_PATH", str(BASE_DIR / "db.sqlite3")),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": _DB_ENGINE,
+            "NAME": os.environ.get("POSTGRES_DB", "obe_system"),
+            "USER": os.environ.get("POSTGRES_USER", "obe"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "obe_password"),
+            "HOST": os.environ.get("POSTGRES_HOST", "db"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
+    }
 
 # --- Password validation ------------------------------------------------
 # Intentionally empty: no real authentication in this development build.

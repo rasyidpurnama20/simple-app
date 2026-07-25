@@ -19,6 +19,16 @@
     .ws .badge { display:inline-block; margin-top:8px; font-size:11px; padding:2px 8px; border-radius:999px; }
     .ws .badge.on { background:#dcfce7; color:#166534; }
     .ws .badge.off { background:#f3f4f6; color:#6b7280; }
+    .groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+    .group h3 { margin:0 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .task { border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; }
+    .task .t-title { font-weight:600; }
+    .task .t-status { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; background:#e0e7ff; color:#3730a3; margin-top:4px; }
+    .task details { margin-top:8px; }
+    .task details summary { cursor:pointer; font-size:12px; color:var(--brand); }
+    .task .facet { font-size:12px; color:var(--muted); margin-top:4px; }
+    .task .facet b { color:var(--ink); }
+    .empty { color:var(--muted); font-size:13px; }
 </style>
 {% endblock %}
 
@@ -28,6 +38,36 @@
     Anda melihat sebagai <strong>{{ landing.role_label }}</strong>
     {% if landing.prodi_name %}· Program Studi: <strong>{{ landing.prodi_name }}</strong>{% endif %}
 </p>
+
+<div class="card">
+    <h2>Pekerjaan berikutnya</h2>
+    <div class="groups">
+        <div class="group">
+            <h3>Do Now</h3>
+            {% for task in landing.home_groups.do_now %}
+                {% include "web/_task_card.html" with task=task %}
+            {% empty %}
+                <p class="empty">Tidak ada tugas yang siap dikerjakan.</p>
+            {% endfor %}
+        </div>
+        <div class="group">
+            <h3>Next</h3>
+            {% for task in landing.home_groups.next %}
+                {% include "web/_task_card.html" with task=task %}
+            {% empty %}
+                <p class="empty">Belum ada tugas berikutnya.</p>
+            {% endfor %}
+        </div>
+        <div class="group">
+            <h3>Waiting on Others</h3>
+            {% for task in landing.home_groups.waiting_on_others %}
+                {% include "web/_task_card.html" with task=task %}
+            {% empty %}
+                <p class="empty">Tidak ada tugas yang menunggu pihak lain.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 
 <div class="card">
     <h2>Tindakan yang tersedia untuk peran ini</h2>

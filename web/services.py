@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from core.dtos import RoleContextDTO
 from core.services import RoleService
+from timeline.services import HomeService
 
 from .dtos import LandingDTO, WorkspaceLinkDTO
 
@@ -26,12 +27,24 @@ class LandingService:
     """Builds the Home landing-page view model."""
 
     @staticmethod
-    def landing(role_context: RoleContextDTO | None) -> LandingDTO:
-        """Assemble the landing DTO for the active role context."""
+    def landing(
+        role_context: RoleContextDTO | None, demo_user_id: int | None = None
+    ) -> LandingDTO:
+        """Assemble the landing DTO for the active role context.
+
+        Includes the next-best-work grouping (Do Now / Next / Waiting on
+        Others) for the active user, sourced from the Timeline_Engine's
+        ``HomeService`` (Requirements 4.1-4.5).
+        """
         workspaces = [
             WorkspaceLinkDTO(key=key, label=label, description=desc, available=avail)
             for (key, label, desc, avail) in _WORKSPACES
         ]
+
+        resolved_user_id = demo_user_id
+        if resolved_user_id is None and role_context is not None:
+            resolved_user_id = role_context.demo_user_id
+        home_groups = HomeService.next_best_work(resolved_user_id)
 
         if role_context is None:
             return LandingDTO(
@@ -40,6 +53,7 @@ class LandingService:
                 prodi_name=None,
                 available_actions=[],
                 workspaces=workspaces,
+                home_groups=home_groups,
             )
 
         return LandingDTO(
@@ -48,6 +62,7 @@ class LandingService:
             prodi_name=role_context.prodi_name,
             available_actions=role_context.available_actions,
             workspaces=workspaces,
+            home_groups=home_groups,
         )
 
     @staticmethod

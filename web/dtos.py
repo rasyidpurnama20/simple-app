@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from core.dtos import ActionDTO
+from timeline.dtos import HomeGroupsDTO
 
 
 @dataclass(frozen=True)
@@ -26,3 +27,4 @@ class LandingDTO:
     prodi_name: str | None
     available_actions: list[ActionDTO] = field(default_factory=list)
     workspaces: list[WorkspaceLinkDTO] = field(default_factory=list)
+    home_groups: HomeGroupsDTO = field(default_factory=HomeGroupsDTO)
