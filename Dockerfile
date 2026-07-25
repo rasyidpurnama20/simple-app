@@ -21,7 +21,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . /app/
 
 # Entrypoint waits for the DB, applies migrations, then starts the server.
-RUN chmod +x /app/entrypoint.sh
+# Strip any CR characters (in case the file was checked out with CRLF) so the
+# shebang line is parsed correctly, then make it executable.
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 

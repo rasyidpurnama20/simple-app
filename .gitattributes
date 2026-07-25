@@ -1,0 +1,14 @@
+# Normalize line endings across platforms.
+# Default: treat all text files as text and check out with LF.
+* text=auto eol=lf
+
+# Shell scripts must always use LF so the shebang works in containers.
+*.sh text eol=lf
+entrypoint.sh text eol=lf
+
+# Python sources use LF.
+*.py text eol=lf
+
+# Binary assets should never be modified.
+*.png binary
+*.jpg binary
