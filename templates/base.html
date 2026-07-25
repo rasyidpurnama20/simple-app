@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}OBE System{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        :root {
+            --dev: #b45309;
+            --dev-bg: #fef3c7;
+            --ink: #1f2937;
+            --muted: #6b7280;
+            --line: #e5e7eb;
+            --brand: #1d4ed8;
+            --bg: #f9fafb;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+        }
+        /* --- Dev_Banner (Requirement 15.3): persistent, always visible --- */
+        .dev-banner {
+            background: var(--dev-bg);
+            color: var(--dev);
+            border-bottom: 2px solid var(--dev);
+            padding: 8px 16px;
+            font-size: 13px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .dev-banner small { display: block; font-weight: 400; opacity: 0.85; }
+        header.topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 24px;
+            background: #fff;
+            border-bottom: 1px solid var(--line);
+            flex-wrap: wrap;
+        }
+        .brand { font-weight: 700; font-size: 18px; color: var(--brand); }
+        .role-switcher { display: flex; align-items: center; gap: 8px; }
+        .role-switcher label { font-size: 13px; color: var(--muted); }
+        .role-switcher select, .role-switcher button {
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .role-switcher button { background: var(--brand); color: #fff; cursor: pointer; border: none; }
+        main { max-width: 960px; margin: 0 auto; padding: 24px; }
+        .messages { list-style: none; padding: 0; margin: 0 0 16px; }
+        .messages li { padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
+        .messages li.success { background: #dcfce7; color: #166534; }
+        .messages li.error { background: #fee2e2; color: #991b1b; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Dev_Banner: development environment, synthetic data (Req 15.3) -->
+    <div class="dev-banner">
+        {{ dev_banner_text }}
+        <small>{{ dev_banner_subtext }}</small>
+    </div>
+
+    <header class="topbar">
+        <div class="brand">OBE System</div>
+        <form class="role-switcher" method="post" action="{% url 'web:switch_role' %}">
+            {% csrf_token %}
+            <label for="demo_user_id">Lihat sebagai</label>
+            <select name="demo_user_id" id="demo_user_id">
+                {% for option in available_roles %}
+                    <option value="{{ option.demo_user_id }}"
+                        {% if role_context and role_context.demo_user_id == option.demo_user_id %}selected{% endif %}>
+                        {{ option.name }} — {{ option.role_label }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit">Ganti</button>
+        </form>
+    </header>
+
+    <main>
+        {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# OBE System - Python dependencies
+# Web framework
+Django>=5.0,<5.2
+
+# PostgreSQL driver (binary build, no local libpq/compiler needed)
+psycopg[binary]>=3.1,<4.0
+
+# --- Testing (used by optional test sub-tasks 1.5 / 1.6) ---
+pytest>=8.0,<9.0
+pytest-django>=4.8,<5.0
+hypothesis>=6.100,<7.0
