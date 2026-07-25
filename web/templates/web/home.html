@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Home — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .card h2 { margin-top:0; font-size:16px; }
+    .role-line { color: var(--muted); font-size:14px; margin-bottom:20px; }
+    .role-line strong { color: var(--ink); }
+    ul.actions { list-style:none; padding:0; margin:0; }
+    ul.actions li { padding:12px 14px; border:1px solid var(--line); border-radius:8px; margin-bottom:10px; }
+    ul.actions li .label { font-weight:600; }
+    ul.actions li .desc { color: var(--muted); font-size:13px; margin-top:2px; }
+    .workspaces { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
+    .ws { border:1px solid var(--line); border-radius:8px; padding:14px; }
+    .ws .name { font-weight:600; }
+    .ws .desc { font-size:12px; color:var(--muted); margin-top:4px; }
+    .ws .badge { display:inline-block; margin-top:8px; font-size:11px; padding:2px 8px; border-radius:999px; }
+    .ws .badge.on { background:#dcfce7; color:#166534; }
+    .ws .badge.off { background:#f3f4f6; color:#6b7280; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Selamat datang di OBE System</h1>
+<p class="role-line">
+    Anda melihat sebagai <strong>{{ landing.role_label }}</strong>
+    {% if landing.prodi_name %}· Program Studi: <strong>{{ landing.prodi_name }}</strong>{% endif %}
+</p>
+
+<div class="card">
+    <h2>Tindakan yang tersedia untuk peran ini</h2>
+    {% if landing.available_actions %}
+    <ul class="actions">
+        {% for action in landing.available_actions %}
+        <li>
+            <div class="label">{{ action.label }}</div>
+            {% if action.description %}<div class="desc">{{ action.description }}</div>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="role-line">Tidak ada tindakan untuk peran ini.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Ruang kerja</h2>
+    <div class="workspaces">
+        {% for ws in landing.workspaces %}
+        <div class="ws">
+            <div class="name">{{ ws.label }}</div>
+            <div class="desc">{{ ws.description }}</div>
+            {% if ws.available %}
+                <span class="badge on">Aktif</span>
+            {% else %}
+                <span class="badge off">Segera hadir</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
