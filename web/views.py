@@ -18,7 +18,10 @@ from .services import LandingService
 
 def home(request):
     """Render the Home landing page for the active role."""
-    landing = LandingService.landing(getattr(request, "role_context", None))
+    landing = LandingService.landing(
+        getattr(request, "role_context", None),
+        getattr(request, "demo_user_id", None),
+    )
     return render(request, "web/home.html", {"landing": landing})
 
 

@@ -3,6 +3,30 @@
     "1.5 Write property test for validation messages": {
       "status": "passed",
       "lastRunTimestamp": 1785004646867
+    },
+    "2.3 Write property test and edge test for instantiation": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007409203
+    },
+    "2.5 Write property tests for task status lifecycle": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007410075
+    },
+    "2.7 Write property test for soft dependencies": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007411461
+    },
+    "2.9 Write property test for relative deadlines": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007412483
+    },
+    "2.11 Write property test for schedule history": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007413309
+    },
+    "2.13 Write property tests for Home grouping and explanations": {
+      "status": "passed",
+      "lastRunTimestamp": 1785007414142
     }
   },
   "executionHistory": {}

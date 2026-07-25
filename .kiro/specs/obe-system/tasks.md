@@ -43,29 +43,29 @@ Property-based tests use **Hypothesis** (min. 100 iterations, tagged `Feature: o
     - Test role switch changes available actions (15.2), Dev_Banner presence (15.3), and versioned ConfigRecord behavior (18.2)
     - _Requirements: 15.2, 15.3, 18.2_
 
-- [ ] 2. Implement Timeline_Engine models and instantiation
-  - [ ] 2.1 Create Timeline_Engine models and TaskStatus enum
+- [x] 2. Implement Timeline_Engine models and instantiation
+  - [x] 2.1 Create Timeline_Engine models and TaskStatus enum
     - Implement `TimelineTemplate`, `TimelineInstance` (OneToOne to `OBECycle`), `Phase`, `Milestone`, `Task`, `ChecklistItem`, `TaskDependency` (kind hard|soft), `ScheduleChange`, and `OBECycle`
     - Implement the eight-member `TaskStatus` text choices and Task deadline fields (deadline_kind, fixed_date, relative_offset_days, relative_reference, resolved_deadline) and explanation fields (what/why/who/when/how/next)
     - Create migrations
     - _Requirements: 1.2, 2.1, 3.1, 3.4_
 
-  - [ ] 2.2 Implement create_cycle_from_template deep-copy in TimelineService
+  - [x] 2.2 Implement create_cycle_from_template deep-copy in TimelineService
     - Deep-copy every Phase, Milestone, Task, Checklist item, and dependency edge from template to instance within one transaction, remapping dependency references to new instance tasks, binding to a new OBE_Cycle, and recording Production_Readiness_Fields
     - Reject templates with no Phase via `DomainError` naming the missing structure and corrective step before any write
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ]* 2.3 Write property test and edge test for instantiation
+  - [x]* 2.3 Write property test and edge test for instantiation
     - **Property 1: Instantiation preserves template structure** (Validates: Requirements 1.1, 1.4)
     - **Property 2: Each instance binds to exactly one cycle** (Validates: Requirements 1.2)
     - Edge: reject template with no phase (1.5)
 
-  - [ ] 2.4 Implement task status state machine and transitions
+  - [x] 2.4 Implement task status state machine and transitions
     - Implement `submit_task` (→ Diajukan), `return_task_for_revision` (→ Perlu Revisi), `complete_task` (→ Selesai when all checklist items complete), `transition_to_dikerjakan` (blocked by incomplete hard deps)
     - Implement `recompute_statuses`: derive Belum Siap / Siap Dikerjakan from hard-dependency completion and Terlambat from overdue-and-not-Selesai
     - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.2_
 
-  - [ ]* 2.5 Write property tests for task status lifecycle
+  - [x]* 2.5 Write property tests for task status lifecycle
     - **Property 4: Task status is always a valid enum value** (Validates: Requirements 2.1)
     - **Property 5: Belum Siap while a hard dependency is incomplete** (Validates: Requirements 2.2)
     - **Property 6: Siap Dikerjakan when all hard dependencies complete** (Validates: Requirements 2.3)
@@ -74,35 +74,35 @@ Property-based tests use **Hypothesis** (min. 100 iterations, tagged `Feature: o
     - **Property 9: Hard dependencies block Dikerjakan** (Validates: Requirements 3.2)
     - Example: submit → Diajukan (2.4), return → Perlu Revisi (2.5)
 
-  - [ ] 2.6 Implement hard/soft dependency handling and advisories
+  - [x] 2.6 Implement hard/soft dependency handling and advisories
     - Enforce hard-dependency blocking of Dikerjakan; for incomplete soft dependencies allow work and surface an advisory naming the incomplete predecessor
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ]* 2.7 Write property test for soft dependencies
+  - [x]* 2.7 Write property test for soft dependencies
     - **Property 10: Soft dependencies advise but never block**
     - **Validates: Requirements 3.3**
 
-  - [ ] 2.8 Implement fixed/relative deadlines and recomputation
+  - [x] 2.8 Implement fixed/relative deadlines and recomputation
     - Compute `resolved_deadline` from fixed date or relative offset + reference; recompute dependent relative deadlines when a referenced milestone/task date changes
     - _Requirements: 3.4, 3.5_
 
-  - [ ]* 2.9 Write property test for relative deadlines
+  - [x]* 2.9 Write property test for relative deadlines
     - **Property 11: Relative deadlines track their reference**
     - **Validates: Requirements 3.5**
 
-  - [ ] 2.10 Implement non-destructive schedule history
+  - [x] 2.10 Implement non-destructive schedule history
     - Implement `change_schedule` (retain previous value, require and store a reason, record actor/timestamp/previous/new, recompute dependent relative deadlines) and `get_history` returning entries newest-first
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ]* 2.11 Write property test for schedule history
+  - [x]* 2.11 Write property test for schedule history
     - **Property 14: Schedule history is non-destructive and ordered**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4**
 
-  - [ ] 2.12 Implement HomeService next-best-work grouping
+  - [x] 2.12 Implement HomeService next-best-work grouping
     - Partition the current user's tasks into Do Now (Siap Dikerjakan/Dikerjakan), Next (Belum Siap), Waiting on Others (Diajukan), each with a complete six-facet explanation (what/why/who/when/how/next)
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ]* 2.13 Write property tests for Home grouping and explanations
+  - [x]* 2.13 Write property tests for Home grouping and explanations
     - **Property 12: Home grouping maps status to the correct bucket** (Validates: Requirements 4.1, 4.2, 4.3, 4.4)
     - **Property 13: Explanations are complete** (Validates: Requirements 4.5, 13.2, 14.1)
 
