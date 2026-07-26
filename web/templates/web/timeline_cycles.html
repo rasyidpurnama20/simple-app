@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Cycles - OBE System{% endblock %}
+{% block content %}
+<h1>Siklus OBE</h1>
+{% if cycles %}
+<ul>
+  {% for cycle in cycles %}
+  <li><strong>{{ cycle.name }}</strong> ({{ cycle.academic_year }}) &mdash; {{ cycle.status }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>Belum ada siklus OBE.</p>
+{% endif %}
+{% endblock %}

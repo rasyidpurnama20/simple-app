@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Dry Run Report - OBE System{% endblock %}
+{% block content %}
+<h1>Laporan Validasi (Dry Run)</h1>
+<p>Batch: {{ report.batch_id|truncatechars:8 }} | Total baris: {{ report.total_rows }}</p>
+
+<table style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr><th>Baris</th><th>Kunci Bisnis</th><th>Klasifikasi</th><th>Error</th></tr>
+  </thead>
+  <tbody>
+  {% for entry in report.entries %}
+  <tr style="border-bottom:1px solid #eee;">
+    <td>{{ entry.row_index }}</td>
+    <td>{{ entry.business_key }}</td>
+    <td>{{ entry.classification }}</td>
+    <td>
+      {% for err in entry.cell_errors %}
+        {{ err.field }}: {{ err.problem }}<br>
+      {% endfor %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" action="{% url 'excel_import:commit' %}">
+  {% csrf_token %}
+  <input type="hidden" name="batch_id" value="{{ report.batch_id }}">
+  <button type="submit">Konfirmasi & Simpan</button>
+</form>
+
+<p><a href="{% url 'excel_import:workspace' %}">&larr; Kembali</a></p>
+{% endblock %}

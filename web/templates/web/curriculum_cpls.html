@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}CPLs - OBE System{% endblock %}
+{% block content %}
+<h1>CPL (Capaian Pembelajaran Lulusan)</h1>
+<p><a href="{% url 'web:curriculum' %}">&larr; Kembali ke Curriculum</a></p>
+{% if cpls %}
+<ul>
+  {% for cpl in cpls %}
+  <li><strong>{{ cpl.code }}</strong> &mdash; {{ cpl.description }}
+    <ul>{% for ind in cpl.indicators.all %}<li>{{ ind.code }}: {{ ind.description }} (target: {{ ind.target_value }})</li>{% endfor %}</ul>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>Belum ada CPL.</p>
+{% endif %}
+{% endblock %}

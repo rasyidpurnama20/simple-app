@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Courses - OBE System{% endblock %}
+{% block content %}
+<h1>Mata Kuliah</h1>
+<p><a href="{% url 'web:curriculum' %}">&larr; Kembali ke Curriculum</a></p>
+{% if courses %}
+<ul>
+  {% for course in courses %}
+  <li><strong>{{ course.code }}</strong> &mdash; {{ course.name }} ({{ course.credits }} SKS)</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>Belum ada mata kuliah.</p>
+{% endif %}
+{% endblock %}

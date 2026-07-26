@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Templates - OBE System{% endblock %}
+{% block content %}
+<h1>Template Timeline</h1>
+{% if templates %}
+<ul>
+  {% for t in templates %}
+  <li>{{ t.name }} &mdash; {{ t.description }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>Belum ada template.</p>
+{% endif %}
+{% endblock %}

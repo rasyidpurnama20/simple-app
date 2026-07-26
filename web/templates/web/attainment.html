@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Attainment & Quality - OBE System{% endblock %}
+{% block content %}
+<h1>Attainment & Quality Workspace</h1>
+<p>Hitung ketercapaian CPL, lihat gap, dan tugas tindak lanjut.</p>
+
+<section>
+  <h2>Siklus OBE</h2>
+  {% if cycles %}
+  <ul>
+    {% for cycle in cycles %}
+    <li>
+      <strong>{{ cycle.name }}</strong> ({{ cycle.academic_year }})
+      <form method="post" action="{% url 'web:attainment_calculate' cycle.pk %}" style="display:inline;">
+        {% csrf_token %}<button type="submit">Hitung Capaian</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Belum ada siklus OBE.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Hasil Perhitungan</h2>
+  {% if results %}
+  <table style="width:100%; border-collapse:collapse;">
+    <thead><tr><th>CPL</th><th>Aktual</th><th>Target</th><th>Gap</th><th>Formula</th></tr></thead>
+    <tbody>
+    {% for r in results %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td>{{ r.outcome_ref }}</td>
+      <td>{{ r.actual_value }}</td>
+      <td>{{ r.target_value }}</td>
+      <td>{{ r.gap }}</td>
+      <td>{{ r.formula_name }} v{{ r.formula_version }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Belum ada hasil perhitungan.</p>
+  {% endif %}
+</section>
+{% endblock %}

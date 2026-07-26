@@ -16,10 +16,10 @@ from .dtos import LandingDTO, WorkspaceLinkDTO
 # wired up so far; only Home is functional in Task 1.
 _WORKSPACES = [
     ("home", "Home", "Pekerjaan berikutnya: Do Now / Next / Waiting on Others.", True),
-    ("timeline", "Timeline", "Siklus OBE, template, fase, milestone, tugas.", False),
-    ("curriculum", "Curriculum", "Kurikulum, CPL, indikator, mata kuliah.", False),
-    ("learning", "Learning", "Penyusunan RPS, CPMK, instrumen, rubrik.", False),
-    ("attainment", "Attainment & Quality", "Hitung ketercapaian & tugas tindak lanjut.", False),
+    ("timeline", "Timeline", "Siklus OBE, template, fase, milestone, tugas.", True),
+    ("curriculum", "Curriculum", "Kurikulum, CPL, indikator, mata kuliah.", True),
+    ("learning", "Learning", "Penyusunan RPS, CPMK, instrumen, rubrik.", True),
+    ("attainment", "Attainment & Quality", "Hitung ketercapaian & tugas tindak lanjut.", True),
 ]
 
 
