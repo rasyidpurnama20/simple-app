@@ -1,44 +1,78 @@
 {% extends "base.html" %}
-{% block title %}Curriculum - OBE System{% endblock %}
+{% block title %}Curriculum — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .section h2 { margin-top:0; font-size:16px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; padding:10px 8px; background:#f9fafb; border-bottom:2px solid var(--line); font-size:12px; text-transform:uppercase; color:var(--muted); }
+    td { padding:10px 8px; border-bottom:1px solid var(--line); }
+    .status-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+    .status-badge.active { background:#dcfce7; color:#166534; }
+    .status-badge.draft { background:#fef3c7; color:#92400e; }
+    .status-badge.archived { background:#f3f4f6; color:#6b7280; }
+    .btn { display:inline-block; padding:6px 12px; border-radius:6px; font-size:12px; text-decoration:none; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); }
+    .btn:hover { background:#f3f4f6; }
+    .btn-primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-sm { padding:4px 8px; font-size:11px; }
+    .form-row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:12px; }
+    .form-row input, .form-row select { padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-size:13px; }
+    .form-row input[name="name"] { min-width:200px; }
+    .empty { color:var(--muted); font-size:13px; padding:12px 0; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Curriculum Workspace</h1>
-<p>Kelola kurikulum, CPL, indikator, mata kuliah, dan kontribusi.</p>
+<p style="color:var(--muted); margin-bottom:20px;">Kelola kurikulum, CPL, indikator, mata kuliah, dan kontribusi.</p>
 
-<section>
-  <h2>Daftar Kurikulum</h2>
-  {% if curricula %}
-  <table style="width:100%; border-collapse:collapse;">
-    <thead><tr><th>Nama</th><th>Tahun</th><th>Status</th><th>Aksi</th></tr></thead>
-    <tbody>
-    {% for c in curricula %}
-    <tr style="border-bottom:1px solid #eee;">
-      <td>{{ c.name }}</td>
-      <td>{{ c.year }}</td>
-      <td>{{ c.status }}</td>
-      <td>
-        <a href="{% url 'web:curriculum_cpls' c.pk %}">CPL</a> |
-        <a href="{% url 'web:curriculum_courses' c.pk %}">Courses</a>
-        {% if c.status == 'draft' %}
-        | <form method="post" action="{% url 'web:curriculum_activate' c.pk %}" style="display:inline;">
-          {% csrf_token %}<button type="submit">Activate</button></form>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Belum ada kurikulum.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Daftar Kurikulum</h2>
+    {% if curricula %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nama</th>
+                <th>Tahun</th>
+                <th>Status</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in curricula %}
+        <tr>
+            <td><strong>{{ c.name }}</strong></td>
+            <td>{{ c.year|default:"-" }}</td>
+            <td><span class="status-badge {{ c.status }}">{{ c.status|title }}</span></td>
+            <td>
+                <a href="{% url 'web:curriculum_cpls' c.pk %}" class="btn btn-sm">CPL</a>
+                <a href="{% url 'web:curriculum_courses' c.pk %}" class="btn btn-sm">Courses</a>
+                {% if c.status == 'draft' %}
+                <form method="post" action="{% url 'web:curriculum_activate' c.pk %}" style="display:inline;">
+                    {% csrf_token %}<button type="submit" class="btn btn-sm btn-primary">Activate</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Belum ada kurikulum. Buat kurikulum pertama Anda di bawah.</p>
+    {% endif %}
+</div>
 
-<section>
-  <h2>Buat Kurikulum Baru</h2>
-  <form method="post" action="{% url 'web:curriculum_create' %}">
-    {% csrf_token %}
-    <input name="name" placeholder="Nama Kurikulum" required>
-    <input name="year" placeholder="Tahun">
-    <button type="submit">Buat</button>
-  </form>
-</section>
+<div class="section">
+    <h2>Buat Kurikulum Baru</h2>
+    <form method="post" action="{% url 'web:curriculum_create' %}">
+        {% csrf_token %}
+        <div class="form-row">
+            <input name="name" placeholder="Nama Kurikulum" required>
+            <input name="year" placeholder="Tahun (mis: 2024)" style="width:120px;">
+            <button type="submit" class="btn btn-primary">Buat Kurikulum</button>
+        </div>
+    </form>
+</div>
 {% endblock %}

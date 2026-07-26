@@ -1,27 +1,87 @@
 {% extends "base.html" %}
-{% block title %}Learning - OBE System{% endblock %}
+{% block title %}Learning — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .section h2 { margin-top:0; font-size:16px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; padding:10px 8px; background:#f9fafb; border-bottom:2px solid var(--line); font-size:12px; text-transform:uppercase; color:var(--muted); }
+    td { padding:10px 8px; border-bottom:1px solid var(--line); }
+    .status-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+    .status-badge.draft { background:#fef3c7; color:#92400e; }
+    .status-badge.submitted { background:#e0e7ff; color:#3730a3; }
+    .status-badge.approved { background:#dcfce7; color:#166534; }
+    .form-row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:8px; }
+    .form-row input, .form-row select { padding:6px 10px; border:1px solid var(--line); border-radius:6px; font-size:12px; }
+    .btn { display:inline-block; padding:6px 12px; border-radius:6px; font-size:12px; text-decoration:none; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); }
+    .btn:hover { background:#f3f4f6; }
+    .btn-primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-sm { padding:4px 8px; font-size:11px; }
+    .empty { color:var(--muted); font-size:13px; padding:12px 0; }
+    a.row-link { color:var(--brand); text-decoration:none; font-weight:600; }
+    a.row-link:hover { text-decoration:underline; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Learning Workspace</h1>
-<p>Penyusunan RPS, CPMK, Sub-CPMK, instrumen penilaian, dan rubrik.</p>
+<p style="color:var(--muted); margin-bottom:20px;">Penyusunan RPS, CPMK, Sub-CPMK, instrumen penilaian, dan rubrik.</p>
 
-<section>
-  <h2>Daftar RPS</h2>
-  {% if rps_list %}
-  <table style="width:100%; border-collapse:collapse;">
-    <thead><tr><th>Mata Kuliah</th><th>Kelas</th><th>Periode</th><th>Status</th></tr></thead>
-    <tbody>
-    {% for rps in rps_list %}
-    <tr style="border-bottom:1px solid #eee;">
-      <td>{{ rps.course_id }}</td>
-      <td>{{ rps.class_name }}</td>
-      <td>{{ rps.period }}</td>
-      <td>{{ rps.status }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Belum ada RPS.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Daftar RPS</h2>
+    {% if rps_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>Mata Kuliah</th>
+                <th>Kurikulum</th>
+                <th>Kelas</th>
+                <th>Periode</th>
+                <th>Status</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for rps in rps_list %}
+        <tr>
+            <td><a href="{% url 'web:rps_detail' rps.pk %}" class="row-link">{{ rps.course.code }} - {{ rps.course.name }}</a></td>
+            <td>{{ rps.curriculum.name }}</td>
+            <td>{{ rps.class_name|default:"-" }}</td>
+            <td>{{ rps.period|default:"-" }}</td>
+            <td><span class="status-badge {{ rps.status }}">{{ rps.status|title }}</span></td>
+            <td><a href="{% url 'web:rps_detail' rps.pk %}" class="btn btn-sm">Detail</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Belum ada RPS. Buat RPS pertama di bawah.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>Buat RPS Baru</h2>
+    <form method="post" action="{% url 'web:rps_create' %}">
+        {% csrf_token %}
+        <div class="form-row">
+            <select name="curriculum_id" required>
+                <option value="">— Pilih Kurikulum —</option>
+                {% for cur in curricula %}
+                <option value="{{ cur.pk }}">{{ cur.name }} ({{ cur.year|default:"-" }})</option>
+                {% endfor %}
+            </select>
+            <select name="course_id" required>
+                <option value="">— Pilih Mata Kuliah —</option>
+                {% for course in courses %}
+                <option value="{{ course.pk }}">{{ course.code }} - {{ course.name }}</option>
+                {% endfor %}
+            </select>
+            <input name="class_name" placeholder="Kelas (A, B, ...)" required style="width:100px;">
+            <input name="period" placeholder="Periode (Gasal 2024/2025)" required style="width:180px;">
+            <button type="submit" class="btn btn-primary">Buat RPS</button>
+        </div>
+    </form>
+</div>
 {% endblock %}
