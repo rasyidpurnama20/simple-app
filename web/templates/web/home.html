@@ -13,7 +13,8 @@
     ul.actions li .label { font-weight:600; }
     ul.actions li .desc { color: var(--muted); font-size:13px; margin-top:2px; }
     .workspaces { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
-    .ws { border:1px solid var(--line); border-radius:8px; padding:14px; }
+    .ws { border:1px solid var(--line); border-radius:8px; padding:14px; text-decoration:none; color:inherit; display:block; transition: box-shadow 0.15s; }
+    .ws:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: var(--brand); }
     .ws .name { font-weight:600; }
     .ws .desc { font-size:12px; color:var(--muted); margin-top:4px; }
     .ws .badge { display:inline-block; margin-top:8px; font-size:11px; padding:2px 8px; border-radius:999px; }
@@ -29,6 +30,11 @@
     .task .facet { font-size:12px; color:var(--muted); margin-top:4px; }
     .task .facet b { color:var(--ink); }
     .empty { color:var(--muted); font-size:13px; }
+    .getting-started { background: #eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:16px; margin-top:12px; }
+    .getting-started h3 { margin:0 0 8px; font-size:14px; color: var(--brand); }
+    .getting-started ol { margin:0; padding-left:20px; }
+    .getting-started li { margin-bottom:6px; font-size:13px; }
+    .getting-started a { color: var(--brand); text-decoration:underline; }
 </style>
 {% endblock %}
 
@@ -67,6 +73,17 @@
             {% endfor %}
         </div>
     </div>
+
+    {% if not landing.home_groups.do_now and not landing.home_groups.next %}
+    <div class="getting-started">
+        <h3>Panduan Memulai</h3>
+        <ol>
+            <li><a href="{% url 'web:curriculum' %}">Buka Curriculum</a> — Tinjau kurikulum, CPL, dan mata kuliah yang tersedia</li>
+            <li><a href="{% url 'web:learning' %}">Buka Learning</a> — Lihat RPS yang telah disusun beserta rubriknya</li>
+            <li><a href="{% url 'web:attainment' %}">Buka Attainment</a> — Jalankan perhitungan ketercapaian CPL</li>
+        </ol>
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -89,7 +106,7 @@
     <h2>Ruang kerja</h2>
     <div class="workspaces">
         {% for ws in landing.workspaces %}
-        <div class="ws">
+        <a class="ws" href="{% if ws.key == 'home' %}{% url 'web:home' %}{% elif ws.key == 'timeline' %}{% url 'web:timeline' %}{% elif ws.key == 'curriculum' %}{% url 'web:curriculum' %}{% elif ws.key == 'learning' %}{% url 'web:learning' %}{% elif ws.key == 'attainment' %}{% url 'web:attainment' %}{% endif %}">
             <div class="name">{{ ws.label }}</div>
             <div class="desc">{{ ws.description }}</div>
             {% if ws.available %}
@@ -97,7 +114,7 @@
             {% else %}
                 <span class="badge off">Segera hadir</span>
             {% endif %}
-        </div>
+        </a>
         {% endfor %}
     </div>
 </div>

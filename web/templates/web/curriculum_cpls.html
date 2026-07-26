@@ -1,17 +1,82 @@
 {% extends "base.html" %}
-{% block title %}CPLs - OBE System{% endblock %}
+{% block title %}CPL — {{ curriculum.name }} — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .section h2 { margin-top:0; font-size:16px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    .breadcrumb { font-size:13px; color:var(--muted); margin-bottom:16px; }
+    .breadcrumb a { color:var(--brand); text-decoration:none; }
+    .breadcrumb a:hover { text-decoration:underline; }
+    .cpl-card { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:12px; }
+    .cpl-card .cpl-header { display:flex; align-items:center; gap:8px; }
+    .cpl-card .cpl-code { font-weight:700; font-size:15px; color:var(--brand); }
+    .cpl-card .cpl-desc { color:var(--ink); font-size:13px; margin-top:4px; }
+    .indicator-list { margin-top:8px; padding-left:16px; }
+    .indicator-list li { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .indicator-list li strong { color:var(--ink); }
+    .indicator-form { margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+    .form-row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:8px; }
+    .form-row input, .form-row select { padding:6px 10px; border:1px solid var(--line); border-radius:6px; font-size:12px; }
+    .btn { display:inline-block; padding:6px 12px; border-radius:6px; font-size:12px; text-decoration:none; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); }
+    .btn-primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-sm { padding:4px 8px; font-size:11px; }
+    .empty { color:var(--muted); font-size:13px; padding:12px 0; }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'web:curriculum' %}">Curriculum</a> &rarr; <strong>{{ curriculum.name }}</strong> &rarr; CPL
+</div>
+
 <h1>CPL (Capaian Pembelajaran Lulusan)</h1>
-<p><a href="{% url 'web:curriculum' %}">&larr; Kembali ke Curriculum</a></p>
-{% if cpls %}
-<ul>
-  {% for cpl in cpls %}
-  <li><strong>{{ cpl.code }}</strong> &mdash; {{ cpl.description }}
-    <ul>{% for ind in cpl.indicators.all %}<li>{{ ind.code }}: {{ ind.description }} (target: {{ ind.target_value }})</li>{% endfor %}</ul>
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>Belum ada CPL.</p>
-{% endif %}
+<p style="color:var(--muted); font-size:13px;">Kurikulum: <strong>{{ curriculum.name }}</strong> ({{ curriculum.year|default:"-" }})</p>
+
+<div class="section">
+    <h2>Daftar CPL</h2>
+    {% if cpls %}
+        {% for cpl in cpls %}
+        <div class="cpl-card">
+            <div class="cpl-header">
+                <span class="cpl-code">{{ cpl.code }}</span>
+            </div>
+            <div class="cpl-desc">{{ cpl.description }}</div>
+            {% if cpl.indicators.all %}
+            <ul class="indicator-list">
+                {% for ind in cpl.indicators.all %}
+                <li><strong>{{ ind.code }}</strong>: {{ ind.description }} (target: {{ ind.target_value }})</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            <div class="indicator-form">
+                <form method="post" action="{% url 'web:add_cpl_indicator' cpl.pk %}">
+                    {% csrf_token %}
+                    <div class="form-row">
+                        <input name="code" placeholder="Kode Indikator (IK-x.x)" required style="width:120px;">
+                        <input name="description" placeholder="Deskripsi indikator" required style="min-width:200px;">
+                        <input name="target_value" placeholder="Target" value="70.00" style="width:80px;">
+                        <button type="submit" class="btn btn-sm btn-primary">+ Indikator</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <p class="empty">Belum ada CPL untuk kurikulum ini.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>Tambah CPL Baru</h2>
+    <form method="post" action="{% url 'web:add_cpl' curriculum_id %}">
+        {% csrf_token %}
+        <div class="form-row">
+            <input name="code" placeholder="Kode CPL (mis: CPL-5)" required style="width:120px;">
+            <input name="description" placeholder="Deskripsi capaian pembelajaran" required style="min-width:300px;">
+            <button type="submit" class="btn btn-primary">Tambah CPL</button>
+        </div>
+    </form>
+</div>
 {% endblock %}

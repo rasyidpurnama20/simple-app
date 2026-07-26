@@ -1,45 +1,97 @@
 {% extends "base.html" %}
-{% block title %}Attainment & Quality - OBE System{% endblock %}
+{% block title %}Attainment & Quality — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .section h2 { margin-top:0; font-size:16px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    .cycle-card { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+    .cycle-card .info .name { font-weight:700; }
+    .cycle-card .info .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+    .btn { display:inline-block; padding:8px 16px; border-radius:6px; font-size:13px; text-decoration:none; cursor:pointer; border:none; font-weight:600; }
+    .btn-calculate { background:#7c3aed; color:#fff; }
+    .btn-calculate:hover { background:#6d28d9; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; padding:10px 8px; background:#f9fafb; border-bottom:2px solid var(--line); font-size:12px; text-transform:uppercase; color:var(--muted); }
+    td { padding:10px 8px; border-bottom:1px solid var(--line); }
+    .gap-positive { color:#16a34a; font-weight:600; }
+    .gap-negative { color:#dc2626; font-weight:600; }
+    .gap-zero { color:var(--muted); font-weight:600; }
+    .empty { color:var(--muted); font-size:13px; padding:12px 0; }
+    .result-summary { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:#166534; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Attainment & Quality Workspace</h1>
-<p>Hitung ketercapaian CPL, lihat gap, dan tugas tindak lanjut.</p>
+<p style="color:var(--muted); margin-bottom:20px;">Hitung ketercapaian CPL, lihat gap, dan tugas tindak lanjut otomatis.</p>
 
-<section>
-  <h2>Siklus OBE</h2>
-  {% if cycles %}
-  <ul>
-    {% for cycle in cycles %}
-    <li>
-      <strong>{{ cycle.name }}</strong> ({{ cycle.academic_year }})
-      <form method="post" action="{% url 'web:attainment_calculate' cycle.pk %}" style="display:inline;">
-        {% csrf_token %}<button type="submit">Hitung Capaian</button></form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Belum ada siklus OBE.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Siklus OBE — Hitung Capaian</h2>
+    {% if cycles %}
+        {% for cycle in cycles %}
+        <div class="cycle-card">
+            <div class="info">
+                <div class="name">{{ cycle.name }}</div>
+                <div class="meta">Tahun Akademik: {{ cycle.academic_year|default:"-" }}</div>
+            </div>
+            <form method="post" action="{% url 'web:attainment_calculate' cycle.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-calculate">Hitung Capaian</button>
+            </form>
+        </div>
+        {% endfor %}
+    {% else %}
+    <p class="empty">Belum ada siklus OBE. Buat siklus di Timeline workspace terlebih dahulu.</p>
+    {% endif %}
+</div>
 
-<section>
-  <h2>Hasil Perhitungan</h2>
-  {% if results %}
-  <table style="width:100%; border-collapse:collapse;">
-    <thead><tr><th>CPL</th><th>Aktual</th><th>Target</th><th>Gap</th><th>Formula</th></tr></thead>
-    <tbody>
-    {% for r in results %}
-    <tr style="border-bottom:1px solid #eee;">
-      <td>{{ r.outcome_ref }}</td>
-      <td>{{ r.actual_value }}</td>
-      <td>{{ r.target_value }}</td>
-      <td>{{ r.gap }}</td>
-      <td>{{ r.formula_name }} v{{ r.formula_version }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Belum ada hasil perhitungan.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Hasil Perhitungan Ketercapaian</h2>
+    {% if results %}
+    <div class="result-summary">
+        Total {{ results|length }} hasil perhitungan tersedia.
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>CPL</th>
+                <th>Nilai Aktual</th>
+                <th>Nilai Target</th>
+                <th>Gap</th>
+                <th>Formula</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in results %}
+        <tr>
+            <td><strong>{{ r.outcome_ref }}</strong></td>
+            <td>{{ r.actual_value }}</td>
+            <td>{{ r.target_value }}</td>
+            <td>
+                {% if r.gap > 0 %}
+                <span class="gap-positive">+{{ r.gap }}</span>
+                {% elif r.gap < 0 %}
+                <span class="gap-negative">{{ r.gap }}</span>
+                {% else %}
+                <span class="gap-zero">0.00</span>
+                {% endif %}
+            </td>
+            <td>{{ r.formula_name }} v{{ r.formula_version }}</td>
+            <td>
+                {% if r.gap >= 0 %}
+                <span style="color:#16a34a; font-size:12px; font-weight:600;">Tercapai</span>
+                {% else %}
+                <span style="color:#dc2626; font-size:12px; font-weight:600;">Belum Tercapai</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Belum ada hasil perhitungan. Klik "Hitung Capaian" pada salah satu siklus di atas.</p>
+    {% endif %}
+</div>
 {% endblock %}

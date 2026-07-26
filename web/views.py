@@ -7,7 +7,7 @@ template (Requirement 18.4). No business logic lives here.
 from __future__ import annotations
 
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from core.exceptions import DomainError
@@ -79,6 +79,28 @@ def timeline_templates(request):
     })
 
 
+def timeline_detail(request, pk):
+    """Show an OBE cycle with its full phase -> milestone -> task hierarchy."""
+    from timeline.models import OBECycle, Phase, TimelineInstance
+    cycle = get_object_or_404(OBECycle, pk=pk)
+    # Get the timeline instance for this cycle
+    try:
+        instance = cycle.timeline_instance
+        phases = list(
+            Phase.objects.filter(instance=instance)
+            .prefetch_related("milestones__tasks")
+            .order_by("order")
+        )
+    except TimelineInstance.DoesNotExist:
+        phases = []
+
+    return render(request, "web/timeline_detail.html", {
+        "cycle": cycle,
+        "phases": phases,
+        "active_workspace": "timeline",
+    })
+
+
 # ─── Curriculum workspace ────────────────────────────────────────────────────
 
 def curriculum_workspace(request):
@@ -124,10 +146,13 @@ def curriculum_activate(request, pk):
 
 def curriculum_cpls(request, pk):
     """Show CPLs for a curriculum."""
+    from curriculum.models import Curriculum
     from curriculum.services import CurriculumService
+    curriculum = get_object_or_404(Curriculum, pk=pk)
     cpls = CurriculumService.get_cpls(pk)
     return render(request, "web/curriculum_cpls.html", {
         "cpls": cpls,
+        "curriculum": curriculum,
         "curriculum_id": pk,
         "active_workspace": "curriculum",
     })
@@ -135,10 +160,15 @@ def curriculum_cpls(request, pk):
 
 def curriculum_courses(request, pk):
     """Show courses for a curriculum."""
+    from curriculum.models import CPL, Curriculum
     from curriculum.services import CurriculumService
+    curriculum = get_object_or_404(Curriculum, pk=pk)
     courses = CurriculumService.get_courses(pk)
+    cpls = CurriculumService.get_cpls(pk)
     return render(request, "web/curriculum_courses.html", {
         "courses": courses,
+        "cpls": cpls,
+        "curriculum": curriculum,
         "curriculum_id": pk,
         "active_workspace": "curriculum",
     })
@@ -160,14 +190,102 @@ def curriculum_map_course(request, pk):
     return redirect("web:curriculum_courses", pk=pk)
 
 
+@require_POST
+def add_cpl(request, pk):
+    """Add a CPL to a curriculum."""
+    from curriculum.services import CurriculumService
+    try:
+        actor_id = getattr(request, "demo_user_id", None)
+        data = {
+            "code": request.POST.get("code", ""),
+            "description": request.POST.get("description", ""),
+        }
+        CurriculumService.add_cpl(pk, data, actor_id)
+        messages.success(request, "CPL berhasil ditambahkan.")
+    except DomainError as e:
+        messages.error(request, e.full_message)
+    return redirect("web:curriculum_cpls", pk=pk)
+
+
+@require_POST
+def add_cpl_indicator(request, cpl_id):
+    """Add an indicator to a CPL."""
+    from curriculum.models import CPL
+    from curriculum.services import CurriculumService
+    try:
+        actor_id = getattr(request, "demo_user_id", None)
+        data = {
+            "code": request.POST.get("code", ""),
+            "description": request.POST.get("description", ""),
+            "target_value": request.POST.get("target_value", "70.00"),
+        }
+        CurriculumService.add_cpl_indicator(cpl_id, data, actor_id)
+        cpl = CPL.objects.get(pk=cpl_id)
+        messages.success(request, "Indikator berhasil ditambahkan.")
+        return redirect("web:curriculum_cpls", pk=cpl.curriculum_id)
+    except DomainError as e:
+        messages.error(request, e.full_message)
+        return redirect("web:curriculum")
+
+
+@require_POST
+def add_course(request, pk):
+    """Add a course to a curriculum."""
+    from curriculum.services import CurriculumService
+    try:
+        actor_id = getattr(request, "demo_user_id", None)
+        data = {
+            "code": request.POST.get("code", ""),
+            "name": request.POST.get("name", ""),
+            "credits": int(request.POST.get("credits", 3)),
+        }
+        CurriculumService.add_course(pk, data, actor_id)
+        messages.success(request, "Mata kuliah berhasil ditambahkan.")
+    except DomainError as e:
+        messages.error(request, e.full_message)
+    return redirect("web:curriculum_courses", pk=pk)
+
+
 # ─── Learning workspace (RPS) ───────────────────────────────────────────────
 
 def learning_workspace(request):
     """Render the Learning workspace overview (RPS list)."""
+    from curriculum.models import Course, Curriculum
     from rps.models import RPS
-    rps_list = list(RPS.objects.all()[:20])
+    rps_list = list(RPS.objects.select_related("course", "curriculum").all()[:20])
+    curricula = list(Curriculum.objects.all())
+    courses = list(Course.objects.all())
     return render(request, "web/learning.html", {
         "rps_list": rps_list,
+        "curricula": curricula,
+        "courses": courses,
+        "active_workspace": "learning",
+    })
+
+
+def rps_detail(request, pk):
+    """Show an RPS with its CPMKs, SubCPMKs, instruments, rubrics, and scores."""
+    from rps.models import RPS
+    rps = get_object_or_404(
+        RPS.objects.select_related("course", "curriculum"),
+        pk=pk,
+    )
+    cpmks = list(
+        rps.cpmks.prefetch_related(
+            "derived_from", "sub_cpmks__indicators"
+        ).all()
+    )
+    instruments = list(
+        rps.instruments.prefetch_related(
+            "rubric__criteria__levels",
+            "rubric__criteria__scores",
+            "rubric__criteria__mapped_indicators",
+        ).all()
+    )
+    return render(request, "web/rps_detail.html", {
+        "rps": rps,
+        "cpmks": cpmks,
+        "instruments": instruments,
         "active_workspace": "learning",
     })
 
@@ -206,7 +324,24 @@ def rps_add_cpmk(request, pk):
         messages.success(request, "CPMK berhasil ditambahkan.")
     except DomainError as e:
         messages.error(request, e.full_message)
-    return redirect("web:learning")
+    return redirect("web:rps_detail", pk=pk)
+
+
+@require_POST
+def rps_add_instrument(request, pk):
+    """Add an assessment instrument to an RPS."""
+    from rps.services import RPSService
+    try:
+        actor_id = getattr(request, "demo_user_id", None)
+        data = {
+            "name": request.POST.get("name", ""),
+            "description": request.POST.get("description", ""),
+        }
+        RPSService.add_instrument(pk, data, actor_id)
+        messages.success(request, "Instrumen penilaian berhasil ditambahkan.")
+    except DomainError as e:
+        messages.error(request, e.full_message)
+    return redirect("web:rps_detail", pk=pk)
 
 
 @require_POST
@@ -223,7 +358,7 @@ def rps_define_rubric(request, pk):
         messages.success(request, "Rubrik berhasil disimpan.")
     except DomainError as e:
         messages.error(request, e.full_message)
-    return redirect("web:learning")
+    return redirect("web:rps_detail", pk=pk)
 
 
 @require_POST
@@ -236,7 +371,7 @@ def rps_submit(request, pk):
         messages.success(request, "RPS berhasil diajukan.")
     except DomainError as e:
         messages.error(request, e.full_message)
-    return redirect("web:learning")
+    return redirect("web:rps_detail", pk=pk)
 
 
 # ─── Attainment & Quality workspace ─────────────────────────────────────────

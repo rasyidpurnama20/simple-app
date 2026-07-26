@@ -1,32 +1,63 @@
 {% extends "base.html" %}
-{% block title %}Timeline - OBE System{% endblock %}
+{% block title %}Timeline — OBE System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .section { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px; }
+    .section h2 { margin-top:0; font-size:16px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    .cycle-card { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+    .cycle-card .info { }
+    .cycle-card .name { font-weight:700; font-size:15px; }
+    .cycle-card .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+    .status-badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+    .status-badge.active { background:#dcfce7; color:#166534; }
+    .status-badge.draft { background:#fef3c7; color:#92400e; }
+    .btn { display:inline-block; padding:6px 12px; border-radius:6px; font-size:12px; text-decoration:none; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); }
+    .btn:hover { background:#f3f4f6; }
+    .btn-primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .template-item { border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:8px; }
+    .template-item .t-name { font-weight:600; }
+    .template-item .t-desc { font-size:12px; color:var(--muted); margin-top:2px; }
+    .empty { color:var(--muted); font-size:13px; padding:12px 0; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Timeline Workspace</h1>
-<p>Kelola siklus OBE, template, fase, milestone, dan tugas.</p>
+<p style="color:var(--muted); margin-bottom:20px;">Kelola siklus OBE, template, fase, milestone, dan tugas.</p>
 
-<section>
-  <h2>Siklus OBE</h2>
-  {% if cycles %}
-  <ul>
-    {% for cycle in cycles %}
-    <li><strong>{{ cycle.name }}</strong> ({{ cycle.academic_year }}) &mdash; {{ cycle.status }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Belum ada siklus OBE.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Siklus OBE</h2>
+    {% if cycles %}
+        {% for cycle in cycles %}
+        <div class="cycle-card">
+            <div class="info">
+                <div class="name">{{ cycle.name }}</div>
+                <div class="meta">
+                    Tahun Akademik: {{ cycle.academic_year|default:"-" }}
+                    {% if cycle.start_date %} · Mulai: {{ cycle.start_date }}{% endif %}
+                    · <span class="status-badge {{ cycle.status }}">{{ cycle.status|title }}</span>
+                </div>
+            </div>
+            <a href="{% url 'web:timeline_detail' cycle.pk %}" class="btn btn-primary">Lihat Detail</a>
+        </div>
+        {% endfor %}
+    {% else %}
+    <p class="empty">Belum ada siklus OBE.</p>
+    {% endif %}
+</div>
 
-<section>
-  <h2>Template Timeline</h2>
-  {% if templates %}
-  <ul>
-    {% for t in templates %}
-    <li>{{ t.name }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>Belum ada template.</p>
-  {% endif %}
-</section>
+<div class="section">
+    <h2>Template Timeline</h2>
+    {% if templates %}
+        {% for t in templates %}
+        <div class="template-item">
+            <div class="t-name">{{ t.name }}</div>
+            <div class="t-desc">{{ t.description|default:"Tidak ada deskripsi." }}</div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <p class="empty">Belum ada template.</p>
+    {% endif %}
+</div>
 {% endblock %}
